@@ -1,8 +1,8 @@
 # Street Tracker
 
-A mobile-first PWA skeleton for a single user's street workout and calisthenics progress. The interface is in Polish, uses a dark theme, and is designed primarily for an iPhone.
+A mobile-first PWA with a local data layer for a single user's street workout and calisthenics progress. The interface is in Polish, uses a dark theme, and is designed primarily for an iPhone.
 
-The current app contains four placeholder pages: **Trening**, **Ćwiczenia**, **Progres**, and **Ustawienia**. Workout tracking, exercise management, charts, and settings are intentionally not implemented yet.
+The current app contains four placeholder pages: **Trening**, **Ćwiczenia**, **Progres**, and **Ustawienia**. The database and repositories are implemented; workout tracking screens, exercise management screens, charts, and settings are not implemented yet.
 
 ## Stack
 
@@ -12,7 +12,7 @@ The current app contains four placeholder pages: **Trening**, **Ćwiczenia**, **
 - Dexie.js for IndexedDB
 - `vite-plugin-pwa` for the manifest, generated service worker, and offline app shell
 - Recharts, installed for future progress charts
-- Vitest and ESLint
+- Vitest with fake-indexeddb, and ESLint
 
 ## Run locally
 
@@ -39,7 +39,7 @@ npm test
 npm run lint
 ```
 
-`build` checks TypeScript and generates the production app in `dist/`. `test` runs the Vitest smoke test once. To serve the production build locally:
+`build` checks TypeScript and generates the production app in `dist/`. `test` runs the UI smoke tests and isolated IndexedDB repository/migration tests once. To serve the production build locally:
 
 ```sh
 npm run preview -- --host 0.0.0.0
@@ -62,7 +62,7 @@ Vite preview is a local testing server. Use the port printed in its output.
 public/                 Placeholder PWA and Apple touch icons
 src/
   components/           Shared UI, including the app shell and tab bar
-  db/                   Typed Dexie instance and versioned schema
+  db/                   Types, Dexie schema, seed, repositories, and database tests
   features/
     workouts/           Future workout feature
     exercises/          Future exercise feature
@@ -74,6 +74,8 @@ src/
 
 ## Local data
 
-There is no backend, account system, or sync. `src/db/db.ts` defines a typed Dexie database with an empty version 1 schema; tables and the full data model will be designed later.
+There is no backend, account system, or sync. `src/db/db.ts` defines schema version 2 with exercises, workout sessions, and set entries, preserving the original empty version 1 migration path. The app opens the database on startup and seeds 30 Polish exercises on first creation or upgrade from version 1. Reopening an existing version 2 database preserves user edits and deletions.
 
-Future user data will live in IndexedDB on the current device and browser, scoped to the app's origin (scheme, hostname, and port). A different origin has separate storage. Clearing website data or browser storage can remove local data, and storage may be evicted by the browser. Local storage is not a backup; export and recovery are not part of this skeleton.
+Use `src/db/repositories.ts` for CRUD and indexed history/date queries. The model, API, sorting, validation, and deletion rules are documented in [src/db/README.md](src/db/README.md).
+
+User data lives in IndexedDB on the current device and browser, scoped to the app's origin (scheme, hostname, and port). A different origin has separate storage. Clearing website data or browser storage can remove local data, and storage may be evicted by the browser. Local storage is not a backup; export and recovery are not part of this project yet.

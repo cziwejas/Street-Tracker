@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { registerSW } from 'virtual:pwa-register'
 import { App } from './App'
+import { initializeDatabase } from './db/db'
 import './styles.css'
 
 const root = document.getElementById('root')
@@ -20,3 +21,7 @@ createRoot(root).render(
 )
 
 registerSW({ immediate: true })
+
+void initializeDatabase().catch((error: unknown) => {
+  console.error('Nie udało się otworzyć lokalnej bazy danych.', error)
+})
