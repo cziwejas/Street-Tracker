@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-background: #101418;
+  --color-surface: #151a1f;
+  --color-accent: #c6f36b;
+  --color-muted: #98a3ad;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    background: var(--color-background);
+    color: #f5f7f8;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-background);
+  }
+}
+
+@layer utilities {
+  .app-shell {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .safe-inline {
+    padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+  }
+
+  .safe-top {
+    padding-top: calc(1.25rem + env(safe-area-inset-top, 0px));
+  }
+
+  .safe-bottom {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .main-content {
+    padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));
+  }
+}

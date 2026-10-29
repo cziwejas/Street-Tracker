@@ -1,0 +1,28 @@
+# Dependencies and generated files
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local environment configuration (only sanitized examples belong in Git)
+.env
+.env.*
+!.env.example
+*.local
+
+# Local HTTPS certificates and private keys
+.certs/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Logs
+*.log
+
+# Editor and operating system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
