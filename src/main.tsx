@@ -1,8 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { registerSW } from 'virtual:pwa-register'
 import { App } from './App'
+import { PwaStatus } from './components/PwaStatus'
 import { initializeDatabase } from './db/db'
 import './styles.css'
 
@@ -16,11 +16,10 @@ createRoot(root).render(
   <StrictMode>
     <BrowserRouter>
       <App />
+      <PwaStatus />
     </BrowserRouter>
   </StrictMode>,
 )
-
-registerSW({ immediate: true })
 
 void initializeDatabase().catch((error: unknown) => {
   console.error('Nie udało się otworzyć lokalnej bazy danych.', error)

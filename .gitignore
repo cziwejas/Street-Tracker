@@ -2,6 +2,9 @@
 node_modules/
 dist/
 coverage/
+test-results/
+playwright-report/
+reports/lighthouse/
 *.tsbuildinfo
 
 # Local environment configuration (only sanitized examples belong in Git)

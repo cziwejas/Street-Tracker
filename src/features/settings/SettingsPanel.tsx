@@ -112,7 +112,7 @@ export function SettingsPanel() {
         <h2 id="import-heading" className="text-lg font-semibold">Import z JSON</h2>
         <p id="import-help" className="mt-2 text-sm leading-relaxed text-muted">Wybierz kopię Street Tracker. Przed zapisem sprawdzimy format, wartości i powiązania danych. Błąd importu pozostawi dotychczasowe dane.</p>
         <label htmlFor="backup-file" className="mt-4 block text-sm font-medium">Plik kopii JSON</label>
-        <input id="backup-file" type="file" accept=".json,application/json" aria-describedby="import-help" disabled={busy} onChange={chooseFile} className="workout-input mt-2 w-full min-w-0 text-sm file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:text-white disabled:opacity-45" />
+        <input id="backup-file" type="file" accept=".json,application/json" aria-describedby="import-help" disabled={busy} onChange={chooseFile} className="workout-input mt-2 w-full min-w-0 file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:text-white disabled:opacity-45" />
         {pending && <div className="mt-5 space-y-4">
           <div className="rounded-xl bg-white/5 p-3 text-sm leading-relaxed">
             <p className="break-all font-semibold">{pending.filename}</p>
