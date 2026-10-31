@@ -35,7 +35,7 @@ export function validateDate(date: string): void {
   }
 }
 
-function normalizeTimestamp(timestamp: string): string {
+export function normalizeTimestamp(timestamp: string): string {
   // A timezone is mandatory so storage never depends on the device's timezone.
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(timestamp)) {
     invalid('Znacznik czasu musi być datą ISO 8601 ze strefą czasową.')

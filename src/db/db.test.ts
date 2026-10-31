@@ -29,12 +29,13 @@ afterEach(async () => {
 })
 
 describe('StreetTrackerDB schema and first-run seed', () => {
-  it('opens version 3 with all domain tables and a complete built-in catalogue', async () => {
+  it('opens version 4 with all domain tables and a complete built-in catalogue', async () => {
     const database = createDatabase()
     await database.open()
 
-    expect(database.verno).toBe(3)
+    expect(database.verno).toBe(4)
     expect(database.tables.map((table) => table.name).sort()).toEqual([
+      'backupMetadata',
       'exercises',
       'setEntries',
       'workoutSessions',
@@ -156,7 +157,7 @@ describe('StreetTrackerDB schema and first-run seed', () => {
     const upgradedDatabase = createDatabase(name)
     await upgradedDatabase.open()
 
-    expect(upgradedDatabase.verno).toBe(3)
+    expect(upgradedDatabase.verno).toBe(4)
     expect(await upgradedDatabase.exercises.count()).toBe(30)
     expect(await upgradedDatabase.exercises.get('builtin:front-lever')).toMatchObject({
       name: 'Waga przodem (front lever)',
@@ -192,11 +193,35 @@ describe('StreetTrackerDB schema and first-run seed', () => {
     const upgradedDatabase = createDatabase(name)
     await upgradedDatabase.open()
 
-    expect(upgradedDatabase.verno).toBe(3)
+    expect(upgradedDatabase.verno).toBe(4)
     expect(await upgradedDatabase.exercises.toArray()).toEqual([exercise])
     expect(await upgradedDatabase.workoutSessions.toArray()).toEqual([session])
     expect(await upgradedDatabase.setEntries.toArray()).toEqual([set])
     expect(await upgradedDatabase.workoutStates.count()).toBe(0)
     expect(await upgradedDatabase.workoutSettings.count()).toBe(0)
+  })
+
+  it('upgrades version 3 without changing workout drafts, settings or a deleted catalogue', async () => {
+    const name = createDatabaseName()
+    const originalDatabase = new Dexie(name)
+    connections.push(originalDatabase)
+    originalDatabase.version(3).stores({
+      exercises: 'id, name, category, trackingType', workoutSessions: 'id, date, startedAt',
+      setEntries: 'id, sessionId, exerciseId, [sessionId+order]', workoutStates: 'sessionId', workoutSettings: 'id',
+    })
+    await originalDatabase.open()
+    const state = { sessionId: 'legacy', exerciseIds: [], activeExerciseId: null, drafts: {}, restEndsAt: null }
+    const settings = { id: 'workouts', restDurationSec: 120 }
+    await originalDatabase.table('workoutStates').add(state)
+    await originalDatabase.table('workoutSettings').add(settings)
+    originalDatabase.close()
+
+    const upgradedDatabase = createDatabase(name)
+    await upgradedDatabase.open()
+    expect(upgradedDatabase.verno).toBe(4)
+    expect(await upgradedDatabase.exercises.count()).toBe(0)
+    expect(await upgradedDatabase.workoutStates.toArray()).toEqual([state])
+    expect(await upgradedDatabase.workoutSettings.toArray()).toEqual([settings])
+    expect(await upgradedDatabase.backupMetadata.count()).toBe(0)
   })
 })

@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import { builtinExercises } from './seed'
-import type { Exercise, SetEntry, WorkoutSession, WorkoutSettings, WorkoutState } from './types'
+import type { BackupMetadata, Exercise, SetEntry, WorkoutSession, WorkoutSettings, WorkoutState } from './types'
 
 export class StreetTrackerDB extends Dexie {
   declare exercises: Table<Exercise, string>
@@ -8,6 +8,7 @@ export class StreetTrackerDB extends Dexie {
   declare setEntries: Table<SetEntry, string>
   declare workoutStates: Table<WorkoutState, string>
   declare workoutSettings: Table<WorkoutSettings, string>
+  declare backupMetadata: Table<BackupMetadata, string>
 
   constructor(name = 'StreetTracker') {
     super(name)
@@ -30,6 +31,9 @@ export class StreetTrackerDB extends Dexie {
       workoutStates: 'sessionId',
       workoutSettings: 'id',
     })
+
+    // Backup bookkeeping is local data too; preserve every released schema above.
+    this.version(4).stores({ backupMetadata: 'id' })
 
     // New databases start directly at the latest version; upgrade() is skipped.
     this.on('populate', async (transaction) => {

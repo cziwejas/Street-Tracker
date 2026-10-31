@@ -84,6 +84,23 @@ export interface WorkoutSettings {
   restDurationSec: number
 }
 
+export interface BackupMetadata {
+  id: 'backup'
+  /** Time the last JSON download was requested on this device. */
+  lastExportedAt: string
+}
+
+export interface BackupData {
+  exercises: Exercise[]
+  workoutSessions: WorkoutSession[]
+  setEntries: SetEntry[]
+  workoutStates: WorkoutState[]
+  workoutSettings: WorkoutSettings[]
+  backupMetadata: BackupMetadata[]
+}
+
+export type ImportMode = 'merge' | 'replace'
+
 export interface ActiveWorkout {
   session: WorkoutSession
   state: WorkoutState

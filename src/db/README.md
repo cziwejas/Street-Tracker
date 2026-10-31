@@ -4,7 +4,7 @@ All application data stays in IndexedDB. There is no backend or synchronization.
 
 ## Model and schema
 
-`types.ts` defines three domain entities and two workout persistence records:
+`types.ts` defines three domain entities, two workout persistence records and backup metadata:
 
 | Entity / table | Fields | Indexed queries |
 | --- | --- | --- |
@@ -13,6 +13,7 @@ All application data stays in IndexedDB. There is no backend or synchronization.
 | `SetEntry` / `setEntries` | `id`, `sessionId`, `exerciseId`, optional `variant`, `order`, optional `reps`, `durationSec`, `addedWeightKg`, `repsInReserve`, `note` | ID, session ID, exercise ID, compound session ID + order |
 | `WorkoutState` / `workoutStates` | `sessionId`, ordered `exerciseIds`, `activeExerciseId`, per-exercise `drafts`, `restEndsAt` | Session ID |
 | `WorkoutSettings` / `workoutSettings` | `id: 'workouts'`, `restDurationSec` | ID |
+| `BackupMetadata` / `backupMetadata` | `id: 'backup'`, `lastExportedAt` | ID |
 
 - `date` is an explicit local calendar day (`YYYY-MM-DD`). The caller supplies it; the database does not derive it from UTC timestamps.
 - `startedAt` and `endedAt` use ISO 8601 timestamps with a timezone on input and normalize to UTC on write. `endedAt: null` means the session is still open.
@@ -21,7 +22,7 @@ All application data stays in IndexedDB. There is no backend or synchronization.
 - Metrics are optional, allowing draft sets. Names and progression labels must be nonempty; variants must have unique labels. Numeric metrics must be finite and nonnegative; repetitions, order, and RIR must be integers. Bodyweight, when supplied, must be positive.
 - `trackingType` is `reps`, `time`, or `reps_weight`. Positive added weight requires `supportsAddedWeight`; the `reps_weight` mode also requires that capability. Timing and repetition fields remain optional without imposing a completed-set workflow.
 
-Version 1 remains the released empty schema. Version 2 creates the three domain stores and their indexes. Version 3 adds workout state and preferences without rewriting existing records or reseeding. New databases seed directly through Dexie's `populate` event; existing version 1 databases seed inside the version 2 upgrade transaction. The 30 built-ins in `seed.ts` have stable `builtin:*` IDs. Reopening does not reinsert deleted exercises or overwrite modifications. New records created through the repositories receive UUIDs; newly created exercises have `isCustom: true`.
+Version 1 remains the released empty schema. Version 2 creates the three domain stores and their indexes. Version 3 adds workout state and preferences without rewriting existing records or reseeding. Version 4 adds backup metadata with no reseeding or record rewrites. New databases seed directly through Dexie's `populate` event; existing version 1 databases seed inside the version 2 upgrade transaction. The 30 built-ins in `seed.ts` have stable `builtin:*` IDs. Reopening does not reinsert deleted exercises or overwrite modifications. New records created through the repositories receive UUIDs; newly created exercises have `isCustom: true`.
 
 ## Repository API
 
@@ -35,6 +36,7 @@ Import `repositories` from `./repositories` for the app, or `createRepositories(
 | Queries | `getHistoryForExercise(exerciseId)`, `getSessionsByDateRange(fromDate, toDate)`, `getWorkoutHistory()` |
 | Workout workflow | `getActiveWorkout`, `startWorkout`, `addWorkoutExercise`, `selectWorkoutExercise`, `updateWorkoutDraft`, `logWorkoutSet`, `repeatWorkoutSet`, `finishWorkout` |
 | Workout state and rest | `getWorkoutState`, `getWorkoutSettings`, `updateWorkoutSettings`, `stopWorkoutRest` |
+| Backup | `exportData`, `importData`, `getBackupMetadata`, `recordBackupExport` |
 
 ```ts
 import { repositories } from './repositories'
@@ -78,6 +80,14 @@ PRs and chart metrics are derived in `src/features/progress/progressHelpers.ts`,
 - `restEndsAt` is an absolute Unix timestamp in milliseconds, or `null` when inactive. The UI computes the remaining time from the device clock after suspension or reopening. `stopWorkoutRest(sessionId)` clears it. `finishWorkout(sessionId, endedAt)` preserves history, sets the end timestamp, and clears rest atomically. Workflow mutations reject closed sessions.
 - State mutations return `WorkoutState`; finishing returns `WorkoutSession`. `getWorkoutState(sessionId)` returns derived or stored state, or `undefined` for a missing session. The generic CRUD APIs retain their existing contracts for history maintenance.
 
+## Backup contract
+
+- `exportData()` reads all six stores in one read transaction, including unfinished sessions, next-set drafts and explicitly stored preferences. It does not change the last-export date. Default preferences are derived when no record exists and are not materialized by export.
+- `serializeBackup` / `parseBackupJson` in `features/settings/backupFiles.ts` use `{ format: 'street-tracker', version: 1, exportedAt, data }`. The independent file-format version is not the Dexie schema version. Every store is a required array; IDs are preserved and must be unique within a store. Unknown format versions reject. The parser checks runtime types, domain constraints, dates, singleton setting IDs, draft selections and foreign keys. A finished workout may retain a draft for an unused exercise subsequently deleted through the repository; active workout selections require existing exercises.
+- `importData(data, 'merge' | 'replace')` validates again at the write boundary. Merge adds missing IDs and keeps the complete local record on collisions, including preferences, drafts and backup metadata. The resulting merged graph is also validated against retained local parents. Replace clears all six stores and restores only file records, including an empty catalogue. Both modes commit in one transaction; validation, quota or other storage failures leave the original data intact. The result reports imported and skipped record counts. Repeating a merge is idempotent.
+- The JSON download contains its own export timestamp in `backupMetadata`. After initiating the download, the UI calls `recordBackupExport(exportedAt)` to record that same timestamp locally. The browser cannot confirm that the file was retained. Import restores/preserves the recorded timestamp rather than setting it to the import time. CSV export does not update it. The reminder triggers when no JSON export is recorded or strictly more than 14 × 24 hours have elapsed, and refreshes after resuming the app.
+- CSV contains one row per set, including unfinished workouts, joined session/exercise fields and every set metric. It uses comma separators, CRLF rows, quoted cells, escaped quotes and a UTF-8 BOM. Missing metrics are blank; zero is retained. User text starting with spreadsheet formula characters is prefixed with an apostrophe. CSV is not an import format.
+
 ## Tests
 
-`npm test` runs against `fake-indexeddb`, with a separate named database per test and cleanup afterward. Tests cover CRUD, optional metrics, references, indexed ordering and date boundaries, timestamp normalization, transaction rollback, first-run seed, reopening, migrations from versions 1 and 2, workout resume, draft/history prefill, concurrent logging, repeat, rest preferences, and finishing. They run in Node without altering the browser's database.
+`npm test` runs against `fake-indexeddb`, with a separate named database per test and cleanup afterward. Tests cover CRUD, optional metrics, references, indexed ordering and date boundaries, timestamp normalization, transaction rollback, first-run seed, reopening, migrations from versions 1–3, workout resume, draft/history prefill, concurrent logging, repeat, rest preferences, finishing, full JSON round trips, merge collisions/idempotence, empty replacement, invalid imports, storage-failure rollback, CSV escaping and reminder boundaries. Persistence API tests cover grant, denial, unsupported browsers and errors. They run in Node without altering the browser's database.

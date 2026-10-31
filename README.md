@@ -6,7 +6,9 @@ A mobile-first PWA with a local data layer for a single user's street workout an
 
 The active session, selected exercises, next-set drafts, rest deadline, and rest preference are stored locally in Dexie. Returning to the app restores the workout; the rest countdown accounts for time spent outside the app. **Historia treningów**, accessible from Trening and Progres, lists completed sessions with dates, exercises, volume and historical PR badges. Each session opens a detail view with all sets, variants, notes and a bodyweight measurement form.
 
-**Progres** uses Recharts for the best set (repetitions or longest hold), per-session volume, and bodyweight. Choose an exercise, variant and added load; the date filter applies to all charts and offers 4 weeks, 3 calendar months, or all history. Charts include expandable tables linking to the source sessions. **Ćwiczenia** and **Ustawienia** remain placeholder pages.
+**Progres** uses Recharts for the best set (repetitions or longest hold), per-session volume, and bodyweight. Choose an exercise, variant and added load; the date filter applies to all charts and offers 4 weeks, 3 calendar months, or all history. Charts include expandable tables linking to the source sessions. **Ćwiczenia** remains a placeholder page.
+
+**Ustawienia** exports a complete JSON backup, validates and imports backups with merge or replace, exports all sets to CSV, and requests persistent browser storage. A reminder appears before the first JSON backup and when the last export is more than 14 days old.
 
 ## Stack
 
@@ -43,7 +45,7 @@ npm test
 npm run lint
 ```
 
-`build` checks TypeScript and generates the production app in `dist/`. `test` runs UI smoke tests, workout input/timer/history helper tests, and isolated IndexedDB workflow/repository/migration tests once. To serve the production build locally:
+`build` checks TypeScript and generates the production app in `dist/`. `test` runs UI smoke tests, workout input/timer/history helper tests, backup round trips and validation, CSV/persistence tests, and isolated IndexedDB workflow/repository/migration tests once. To serve the production build locally:
 
 ```sh
 npm run preview -- --host 0.0.0.0
@@ -82,6 +84,19 @@ Use the same browser and origin throughout these checks. Repeat them in Safari a
 
 Repetition volume is an estimate: sum `(session bodyweight + set added weight) × repetitions`. It uses full bodyweight for every repetition exercise, without a biomechanical correction. Missing bodyweight is never filled from another session or treated as zero: history shows those repetitions separately and the volume chart leaves a gap. Timed sets use seconds, summed separately. PRs compare the primary metric (repetitions or seconds) for the same exercise, variant label, and additional load, across the full completed history. Bodyweight changes do not create PRs. PRs are derived, so editing historical data recalculates them.
 
+## Backup and storage checks
+
+Use a disposable browser profile or origin when checking replacement. Keep an independent JSON backup of any data you want to retain.
+
+1. In **Ustawienia**, export JSON with finished and unfinished sessions, weighted and timed sets, custom exercises, variants, notes, next-set drafts and a nondefault rest duration. Verify the downloaded file is saved; a browser download request cannot prove that the user retained the file. Reload and check the last-export date.
+2. Import that file on a fresh test origin, choose **Zastąp wszystkie dane**, read and check the confirmation, then import. Check history, progress, workout resume and rest preferences after reloading. An empty backup must clear all records, including the default catalogue, without reseeding on reopen.
+3. Import with **Scal z danymi na urządzeniu**. Existing IDs keep their complete local record; missing IDs are added. Import twice and verify no duplicate sets or sessions. Local settings and drafts win collisions. A merge that would invalidate references or set metrics must fail with no changes.
+4. Try a malformed JSON file, an unsupported version, a duplicate ID, a negative metric, and a set with a missing parent. Verify Polish errors and unchanged data. Cancel a valid file preview and verify no import occurred.
+5. Export CSV and open it as UTF-8, comma-delimited text in a spreadsheet. Check one row per set, including active workouts, Polish text, commas, quotes, multiline notes, zero values, blank optional measurements, kilograms and seconds. CSV is for analysis; JSON is the restore format.
+6. Check the reminder with no previous export, a last export exactly 14 days ago, and one older than 14 days. Only the older date is overdue. JSON export updates the timestamp; import restores the date in the backup, and CSV leaves it alone.
+7. On a trusted HTTPS origin, check the initial persistence status, then **Włącz trwałe przechowywanie**. Verify granted, denied and unavailable/error states where the browser permits. Permission is browser-controlled; a denial must leave export and import usable. The API requires a secure context; see [MDN: StorageManager.persist()](https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/persist).
+8. On an iPhone, check JSON/CSV saving in Files, file selection, merge and replacement confirmation, long file names, keyboard focus, 44-pixel touch targets, and tab-bar/home-indicator clearance. Repeat while offline in the installed PWA.
+
 ## Project layout
 
 ```text
@@ -93,17 +108,17 @@ src/
     workouts/           Workout logging, exercise picker, rest timer, and persistence hooks
     exercises/          Future exercise feature
     progress/           Progress calculations, PRs, Recharts, and chart data tables
-    settings/           Future settings feature
+    settings/           JSON backups/import, CSV export, storage status and reminder
   lib/                  Shared utilities
-  pages/                Trening, history, session details, Progres, and two placeholders
+  pages/                Trening, history, session details, Progres, Ustawienia, and Ćwiczenia placeholder
 ```
 
 ## Local data
 
-There is no backend, account system, or sync. `src/db/db.ts` defines schema version 3: exercises, workout sessions, and set entries from version 2, plus workout state and workout preferences. The original version 1 and version 2 schemas and migration path are preserved. The app opens the database on startup and seeds 30 Polish exercises on first creation or upgrade from version 1. Upgrading from version 2 and reopening an existing database preserve user edits, deletions, and workout history.
+There is no backend, account system, or sync. `src/db/db.ts` defines schema version 4: exercises, workout sessions, and set entries from version 2, workout state and workout preferences from version 3, and backup metadata from version 4. All released schema declarations and migration paths are preserved. The app opens the database on startup and seeds 30 Polish exercises on first creation or upgrade from version 1. Later upgrades and reopening an existing database preserve user edits, deletions, and workout history.
 
 Workout repository operations append a set and update its draft and rest deadline in one transaction. Starting a workout resumes an existing open session, and finishing it preserves its sets and clears its rest timer. Drafts also persist exercises that have been selected before their first set is logged.
 
 Use `src/db/repositories.ts` for CRUD and indexed history/date queries. The model, API, sorting, validation, and deletion rules are documented in [src/db/README.md](src/db/README.md).
 
-User data lives in IndexedDB on the current device and browser, scoped to the app's origin (scheme, hostname, and port). A different origin has separate storage. Clearing website data or browser storage can remove local data, and storage may be evicted by the browser. Local storage is not a backup; export and recovery are not part of this project yet.
+User data lives in IndexedDB on the current device and browser, scoped to the app's origin (scheme, hostname, and port). A different origin has separate storage. Clearing website data or browser storage can remove local data, and storage may be evicted by the browser. Persistent storage can protect against automatic eviction, but local storage is not a backup: retain the JSON files exported through Ustawienia separately. No data is uploaded during export or import.

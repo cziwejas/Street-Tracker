@@ -1,7 +1,10 @@
 import { createId } from '../lib/createId'
 import { db, type StreetTrackerDB } from './db'
+import { validateBackupData } from './backupValidation'
 import type {
   ActiveWorkout,
+  BackupData,
+  BackupMetadata,
   Exercise,
   ExerciseChanges,
   ExerciseHistoryEntry,
@@ -16,10 +19,12 @@ import type {
   WorkoutSettings,
   WorkoutState,
   WorkoutHistory,
+  ImportMode,
 } from './types'
 import {
   normalizeExercise,
   normalizeSession,
+  normalizeTimestamp,
   RepositoryError,
   validateDate,
   validateSetEntry,
@@ -38,6 +43,66 @@ function compareSessions(a: WorkoutSession, b: WorkoutSession): number {
 
 /** Inject a database for isolated tests; application code can use repositories. */
 export function createRepositories(database: StreetTrackerDB = db) {
+  const backupTables = [database.exercises, database.workoutSessions, database.setEntries,
+    database.workoutStates, database.workoutSettings, database.backupMetadata]
+
+  async function readBackupData(): Promise<BackupData> {
+    const [exercises, workoutSessions, setEntries, workoutStates, workoutSettings, backupMetadata] = await Promise.all([
+      database.exercises.toArray(), database.workoutSessions.toArray(), database.setEntries.toArray(),
+      database.workoutStates.toArray(), database.workoutSettings.toArray(), database.backupMetadata.toArray(),
+    ])
+    return { exercises, workoutSessions, setEntries, workoutStates, workoutSettings, backupMetadata }
+  }
+
+  /** Includes unfinished sessions, next-set drafts, preferences and backup bookkeeping. */
+  async function exportData(): Promise<BackupData> {
+    return database.transaction('r', backupTables, readBackupData)
+  }
+
+  async function getBackupMetadata(): Promise<BackupMetadata | undefined> {
+    return database.backupMetadata.get('backup')
+  }
+
+  async function recordBackupExport(exportedAt: string): Promise<void> {
+    await database.backupMetadata.put({ id: 'backup', lastExportedAt: normalizeTimestamp(exportedAt) })
+  }
+
+  async function importData(input: unknown, mode: ImportMode): Promise<{ importedRecords: number; skippedRecords: number }> {
+    if (mode !== 'merge' && mode !== 'replace') throw new RepositoryError('VALIDATION', 'Wybierz sposób importu danych.')
+    const incoming = validateBackupData(input)
+    return database.transaction('rw', backupTables, async () => {
+      const current = await readBackupData()
+      let skippedRecords = 0
+      function merge<T>(local: T[], imported: T[], key: (row: T) => string): T[] {
+        const keys = new Set(local.map(key))
+        const added = imported.filter((row) => !keys.has(key(row)))
+        skippedRecords += imported.length - added.length
+        return [...local, ...added]
+      }
+      const candidate: BackupData = mode === 'replace' ? incoming : {
+        exercises: merge(current.exercises, incoming.exercises, (row) => row.id),
+        workoutSessions: merge(current.workoutSessions, incoming.workoutSessions, (row) => row.id),
+        setEntries: merge(current.setEntries, incoming.setEntries, (row) => row.id),
+        workoutStates: merge(current.workoutStates, incoming.workoutStates, (row) => row.sessionId),
+        workoutSettings: merge(current.workoutSettings, incoming.workoutSettings, (row) => row.id),
+        backupMetadata: merge(current.backupMetadata, incoming.backupMetadata, (row) => row.id),
+      }
+      // Local parent records may differ from the file: validate the merged graph as well.
+      const validated = validateBackupData(candidate)
+      if (mode === 'replace') {
+        for (const table of backupTables) await table.clear()
+      }
+      await database.exercises.bulkPut(validated.exercises)
+      await database.workoutSessions.bulkPut(validated.workoutSessions)
+      await database.setEntries.bulkPut(validated.setEntries)
+      await database.workoutStates.bulkPut(validated.workoutStates)
+      await database.workoutSettings.bulkPut(validated.workoutSettings)
+      await database.backupMetadata.bulkPut(validated.backupMetadata)
+      const total = Object.values(incoming).reduce((count, rows) => count + rows.length, 0)
+      return { importedRecords: total - skippedRecords, skippedRecords }
+    })
+  }
+
   async function createExercise(input: NewExercise): Promise<Exercise> {
     const exercise = normalizeExercise({
       ...input,
@@ -454,6 +519,10 @@ export function createRepositories(database: StreetTrackerDB = db) {
   }
 
   return {
+    exportData,
+    importData,
+    getBackupMetadata,
+    recordBackupExport,
     createExercise,
     getExercise,
     listExercises,
