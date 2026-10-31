@@ -1,5 +1,7 @@
+import { createId } from '../lib/createId'
 import { db, type StreetTrackerDB } from './db'
 import type {
+  ActiveWorkout,
   Exercise,
   ExerciseChanges,
   ExerciseHistoryEntry,
@@ -10,6 +12,9 @@ import type {
   SetEntryChanges,
   WorkoutSession,
   WorkoutSessionChanges,
+  WorkoutDraft,
+  WorkoutSettings,
+  WorkoutState,
 } from './types'
 import {
   normalizeExercise,
@@ -35,7 +40,7 @@ export function createRepositories(database: StreetTrackerDB = db) {
   async function createExercise(input: NewExercise): Promise<Exercise> {
     const exercise = normalizeExercise({
       ...input,
-      id: crypto.randomUUID(),
+      id: createId(),
       isCustom: true,
       variants: input.variants ?? [],
     })
@@ -62,10 +67,15 @@ export function createRepositories(database: StreetTrackerDB = db) {
   }
 
   async function deleteExercise(id: string): Promise<boolean> {
-    return database.transaction('rw', database.exercises, database.setEntries, async () => {
+    return database.transaction('rw', database.exercises, database.setEntries, database.workoutStates, database.workoutSessions, async () => {
       if (!(await database.exercises.get(id))) return false
       if (await database.setEntries.where('exerciseId').equals(id).count()) {
         throw new RepositoryError('IN_USE', 'Ćwiczenie jest używane w historii treningów.')
+      }
+      const selectedStates = await database.workoutStates.filter((state) => state.exerciseIds.includes(id)).toArray()
+      const selectedSessions = await database.workoutSessions.bulkGet(selectedStates.map((state) => state.sessionId))
+      if (selectedSessions.some((session) => session?.endedAt === null)) {
+        throw new RepositoryError('IN_USE', 'Ćwiczenie jest wybrane w treningu.')
       }
       await database.exercises.delete(id)
       return true
@@ -75,7 +85,7 @@ export function createRepositories(database: StreetTrackerDB = db) {
   async function createWorkoutSession(input: NewWorkoutSession): Promise<WorkoutSession> {
     const session = normalizeSession({
       ...input,
-      id: crypto.randomUUID(),
+      id: createId(),
       endedAt: input.endedAt ?? null,
       notes: input.notes ?? '',
     })
@@ -101,9 +111,10 @@ export function createRepositories(database: StreetTrackerDB = db) {
   }
 
   async function deleteWorkoutSession(id: string): Promise<boolean> {
-    return database.transaction('rw', database.workoutSessions, database.setEntries, async () => {
+    return database.transaction('rw', database.workoutSessions, database.setEntries, database.workoutStates, async () => {
       if (!(await database.workoutSessions.get(id))) return false
       await database.setEntries.where('sessionId').equals(id).delete()
+      await database.workoutStates.delete(id)
       await database.workoutSessions.delete(id)
       return true
     })
@@ -115,7 +126,7 @@ export function createRepositories(database: StreetTrackerDB = db) {
   }
 
   async function createSetEntry(input: NewSetEntry): Promise<SetEntry> {
-    const entry: SetEntry = { ...input, id: crypto.randomUUID(), note: input.note ?? '' }
+    const entry: SetEntry = { ...input, id: createId(), note: input.note ?? '' }
     return database.transaction('rw', database.setEntries, database.workoutSessions, database.exercises, async () => {
       const exercise = await requireSetParents(entry)
       validateSetEntry(entry, exercise)
@@ -188,6 +199,228 @@ export function createRepositories(database: StreetTrackerDB = db) {
     })
   }
 
+  const workoutTables = [
+    database.workoutSessions,
+    database.setEntries,
+    database.exercises,
+    database.workoutStates,
+    database.workoutSettings,
+  ]
+
+  function defaultDraft(exercise: Exercise, set?: SetEntry): WorkoutDraft {
+    return {
+      reps: set?.reps ?? 8,
+      durationSec: set?.durationSec ?? 30,
+      addedWeightKg: exercise.supportsAddedWeight ? set?.addedWeightKg ?? 0 : 0,
+      ...(set?.variant === undefined ? {} : { variant: set.variant }),
+    }
+  }
+
+  function validateDraft(draft: WorkoutDraft, exercise: Exercise, completed: boolean): void {
+    if (!Number.isInteger(draft.reps) || draft.reps < 0
+      || !Number.isFinite(draft.durationSec) || draft.durationSec < 0
+      || !Number.isFinite(draft.addedWeightKg) || draft.addedWeightKg < 0) {
+      throw new RepositoryError('VALIDATION', 'Wpisz poprawne, nieujemne wartości serii.')
+    }
+    if (draft.addedWeightKg > 0 && !exercise.supportsAddedWeight) {
+      throw new RepositoryError('VALIDATION', 'To ćwiczenie nie obsługuje dodatkowego ciężaru.')
+    }
+    if (draft.variant !== undefined && !draft.variant.trim()) {
+      throw new RepositoryError('VALIDATION', 'Wariant serii musi mieć niepustą nazwę.')
+    }
+    if (completed && (exercise.trackingType === 'time' ? draft.durationSec : draft.reps) <= 0) {
+      throw new RepositoryError('VALIDATION', exercise.trackingType === 'time'
+        ? 'Czas serii musi być większy od zera.'
+        : 'Liczba powtórzeń musi być większa od zera.')
+    }
+  }
+
+  async function requireOpenWorkout(sessionId: string): Promise<WorkoutSession> {
+    const session = requireRecord(await database.workoutSessions.get(sessionId), 'Trening')
+    if (session.endedAt !== null) {
+      throw new RepositoryError('VALIDATION', 'Ten trening został już zakończony.')
+    }
+    return session
+  }
+
+  /** Recover selections from existing sets when resuming a pre-v3 session. */
+  async function loadWorkoutState(sessionId: string): Promise<WorkoutState> {
+    const existing = await database.workoutStates.get(sessionId)
+    if (existing) return existing
+    const sets = await getSetEntriesForSession(sessionId)
+    const exerciseIds = [...new Set(sets.map((set) => set.exerciseId))]
+    const exercises = await database.exercises.bulkGet(exerciseIds)
+    const drafts: Record<string, WorkoutDraft> = {}
+    for (const exercise of exercises) {
+      if (!exercise) continue
+      drafts[exercise.id] = defaultDraft(exercise, sets.filter((set) => set.exerciseId === exercise.id).at(-1))
+    }
+    return {
+      sessionId,
+      exerciseIds,
+      activeExerciseId: sets.at(-1)?.exerciseId ?? null,
+      drafts,
+      restEndsAt: null,
+    }
+  }
+
+  async function getWorkoutState(sessionId: string): Promise<WorkoutState | undefined> {
+    return database.transaction('r', workoutTables, async () => {
+      if (!(await database.workoutSessions.get(sessionId))) return undefined
+      return loadWorkoutState(sessionId)
+    })
+  }
+
+  async function getWorkoutSettings(): Promise<WorkoutSettings> {
+    return await database.workoutSettings.get('workouts') ?? { id: 'workouts', restDurationSec: 90 }
+  }
+
+  async function updateWorkoutSettings(changes: Pick<WorkoutSettings, 'restDurationSec'>): Promise<WorkoutSettings> {
+    if (!Number.isInteger(changes.restDurationSec) || changes.restDurationSec < 0 || changes.restDurationSec > 3600) {
+      throw new RepositoryError('VALIDATION', 'Przerwa musi trwać od 0 do 3600 sekund.')
+    }
+    const settings: WorkoutSettings = { id: 'workouts', restDurationSec: changes.restDurationSec }
+    await database.workoutSettings.put(settings)
+    return settings
+  }
+
+  async function readActiveWorkout(): Promise<ActiveWorkout | undefined> {
+    const sessions = await database.workoutSessions.filter((session) => session.endedAt === null).toArray()
+    const session = sessions.sort(compareSessions).at(-1)
+    if (!session) return undefined
+    return { session, state: await loadWorkoutState(session.id), sets: await getSetEntriesForSession(session.id) }
+  }
+
+  async function getActiveWorkout(): Promise<ActiveWorkout | undefined> {
+    return database.transaction('r', workoutTables, readActiveWorkout)
+  }
+
+  async function startWorkout(startedAt: string, date: string): Promise<ActiveWorkout> {
+    return database.transaction('rw', workoutTables, async () => {
+      const active = await readActiveWorkout()
+      if (active) return active
+      const session = await createWorkoutSession({ startedAt, date })
+      const state = await loadWorkoutState(session.id)
+      await database.workoutStates.add(state)
+      return { session, state, sets: [] }
+    })
+  }
+
+  async function latestSetForExercise(sessionId: string, exerciseId: string): Promise<SetEntry | undefined> {
+    const current = (await getSetEntriesForSession(sessionId)).filter((set) => set.exerciseId === exerciseId).at(-1)
+    if (current) return current
+    const history = (await getHistoryForExercise(exerciseId)).filter((entry) => entry.session.id !== sessionId)
+    const latestSessionId = history[0]?.session.id
+    return history.filter((entry) => entry.session.id === latestSessionId).at(-1)?.set
+  }
+
+  async function addWorkoutExercise(sessionId: string, exerciseId: string): Promise<WorkoutState> {
+    return database.transaction('rw', workoutTables, async () => {
+      await requireOpenWorkout(sessionId)
+      const exercise = requireRecord(await database.exercises.get(exerciseId), 'Ćwiczenie')
+      const state = await loadWorkoutState(sessionId)
+      const draft = state.drafts[exerciseId] ?? defaultDraft(exercise, await latestSetForExercise(sessionId, exerciseId))
+      const updated: WorkoutState = {
+        ...state,
+        exerciseIds: state.exerciseIds.includes(exerciseId) ? state.exerciseIds : [...state.exerciseIds, exerciseId],
+        activeExerciseId: exerciseId,
+        drafts: { ...state.drafts, [exerciseId]: draft },
+      }
+      await database.workoutStates.put(updated)
+      return updated
+    })
+  }
+
+  async function selectWorkoutExercise(sessionId: string, exerciseId: string): Promise<WorkoutState> {
+    return database.transaction('rw', workoutTables, async () => {
+      await requireOpenWorkout(sessionId)
+      const state = await loadWorkoutState(sessionId)
+      if (!state.exerciseIds.includes(exerciseId)) {
+        throw new RepositoryError('VALIDATION', 'Najpierw dodaj ćwiczenie do treningu.')
+      }
+      const updated = { ...state, activeExerciseId: exerciseId }
+      await database.workoutStates.put(updated)
+      return updated
+    })
+  }
+
+  async function updateWorkoutDraft(sessionId: string, exerciseId: string, draft: WorkoutDraft): Promise<WorkoutState> {
+    return database.transaction('rw', workoutTables, async () => {
+      await requireOpenWorkout(sessionId)
+      const exercise = requireRecord(await database.exercises.get(exerciseId), 'Ćwiczenie')
+      validateDraft(draft, exercise, false)
+      const state = await loadWorkoutState(sessionId)
+      if (!state.exerciseIds.includes(exerciseId)) {
+        throw new RepositoryError('VALIDATION', 'Najpierw dodaj ćwiczenie do treningu.')
+      }
+      const updated = { ...state, drafts: { ...state.drafts, [exerciseId]: { ...draft } } }
+      await database.workoutStates.put(updated)
+      return updated
+    })
+  }
+
+  async function logWorkoutSet(sessionId: string, exerciseId: string, draft: WorkoutDraft, now = Date.now()): Promise<SetEntry> {
+    return database.transaction('rw', workoutTables, async () => {
+      await requireOpenWorkout(sessionId)
+      const exercise = requireRecord(await database.exercises.get(exerciseId), 'Ćwiczenie')
+      validateDraft(draft, exercise, true)
+      if (!Number.isFinite(now) || !Number.isFinite(new Date(now).getTime())) {
+        throw new RepositoryError('VALIDATION', 'Nieprawidłowy czas rozpoczęcia przerwy.')
+      }
+      const state = await loadWorkoutState(sessionId)
+      if (!state.exerciseIds.includes(exerciseId)) {
+        throw new RepositoryError('VALIDATION', 'Najpierw dodaj ćwiczenie do treningu.')
+      }
+      const sets = await getSetEntriesForSession(sessionId)
+      const settings = await getWorkoutSettings()
+      const entry = await createSetEntry({
+        sessionId,
+        exerciseId,
+        order: (sets.at(-1)?.order ?? -1) + 1,
+        ...(exercise.trackingType === 'time' ? { durationSec: draft.durationSec } : { reps: draft.reps }),
+        ...(exercise.supportsAddedWeight ? { addedWeightKg: draft.addedWeightKg } : {}),
+        ...(draft.variant === undefined ? {} : { variant: draft.variant }),
+      })
+      await database.workoutStates.put({
+        ...state,
+        activeExerciseId: exerciseId,
+        drafts: { ...state.drafts, [exerciseId]: { ...draft } },
+        restEndsAt: settings.restDurationSec > 0 ? now + settings.restDurationSec * 1000 : null,
+      })
+      return entry
+    })
+  }
+
+  async function repeatWorkoutSet(sessionId: string, exerciseId: string, now = Date.now()): Promise<SetEntry> {
+    return database.transaction('rw', workoutTables, async () => {
+      await requireOpenWorkout(sessionId)
+      const exercise = requireRecord(await database.exercises.get(exerciseId), 'Ćwiczenie')
+      const previous = await latestSetForExercise(sessionId, exerciseId)
+      if (!previous) throw new RepositoryError('NOT_FOUND', 'Brak poprzedniej serii tego ćwiczenia.')
+      return logWorkoutSet(sessionId, exerciseId, defaultDraft(exercise, previous), now)
+    })
+  }
+
+  async function finishWorkout(sessionId: string, endedAt: string): Promise<WorkoutSession> {
+    return database.transaction('rw', workoutTables, async () => {
+      await requireOpenWorkout(sessionId)
+      const session = await updateWorkoutSession(sessionId, { endedAt })
+      const state = await loadWorkoutState(sessionId)
+      await database.workoutStates.put({ ...state, restEndsAt: null })
+      return session
+    })
+  }
+
+  async function stopWorkoutRest(sessionId: string): Promise<WorkoutState> {
+    return database.transaction('rw', workoutTables, async () => {
+      await requireOpenWorkout(sessionId)
+      const state = await loadWorkoutState(sessionId)
+      const updated = { ...state, restEndsAt: null }
+      await database.workoutStates.put(updated)
+      return updated
+    })
+  }
+
   return {
     createExercise,
     getExercise,
@@ -206,6 +439,18 @@ export function createRepositories(database: StreetTrackerDB = db) {
     deleteSetEntry,
     getHistoryForExercise,
     getSessionsByDateRange,
+    getWorkoutState,
+    getWorkoutSettings,
+    updateWorkoutSettings,
+    getActiveWorkout,
+    startWorkout,
+    addWorkoutExercise,
+    selectWorkoutExercise,
+    updateWorkoutDraft,
+    logWorkoutSet,
+    repeatWorkoutSet,
+    finishWorkout,
+    stopWorkoutRest,
   }
 }
 

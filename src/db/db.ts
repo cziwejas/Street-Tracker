@@ -1,11 +1,13 @@
 import Dexie, { type Table } from 'dexie'
 import { builtinExercises } from './seed'
-import type { Exercise, SetEntry, WorkoutSession } from './types'
+import type { Exercise, SetEntry, WorkoutSession, WorkoutSettings, WorkoutState } from './types'
 
 export class StreetTrackerDB extends Dexie {
   declare exercises: Table<Exercise, string>
   declare workoutSessions: Table<WorkoutSession, string>
   declare setEntries: Table<SetEntry, string>
+  declare workoutStates: Table<WorkoutState, string>
+  declare workoutSettings: Table<WorkoutSettings, string>
 
   constructor(name = 'StreetTracker') {
     super(name)
@@ -22,6 +24,12 @@ export class StreetTrackerDB extends Dexie {
       .upgrade(async (transaction) => {
         await transaction.table<Exercise, string>('exercises').bulkAdd(builtinExercises)
       })
+
+    // Add workout drafts and preferences without rewriting existing history or seeds.
+    this.version(3).stores({
+      workoutStates: 'sessionId',
+      workoutSettings: 'id',
+    })
 
     // New databases start directly at the latest version; upgrade() is skipped.
     this.on('populate', async (transaction) => {

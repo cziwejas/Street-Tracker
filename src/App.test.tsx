@@ -3,13 +3,13 @@ import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { App } from './App'
 
-describe('Street Tracker skeleton', () => {
+describe('Street Tracker routes', () => {
   it.each([
     ['/', 'Trening'],
     ['/cwiczenia', 'Ćwiczenia'],
     ['/progres', 'Progres'],
     ['/ustawienia', 'Ustawienia'],
-  ])('renders the %s placeholder and navigation', (path, title) => {
+  ])('renders the %s page and navigation', (path, title) => {
     const html = renderToStaticMarkup(
       <MemoryRouter initialEntries={[path]}>
         <App />

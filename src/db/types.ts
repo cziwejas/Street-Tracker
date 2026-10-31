@@ -58,3 +58,32 @@ export interface ExerciseHistoryEntry {
   set: SetEntry
   session: WorkoutSession
 }
+
+/** Values for the next set, persisted even before the set is logged. */
+export interface WorkoutDraft {
+  reps: number
+  durationSec: number
+  addedWeightKg: number
+  variant?: string
+}
+
+export interface WorkoutState {
+  sessionId: string
+  exerciseIds: string[]
+  activeExerciseId: string | null
+  drafts: Record<string, WorkoutDraft>
+  /** Absolute Unix milliseconds; survives suspension and app restarts. */
+  restEndsAt: number | null
+}
+
+export interface WorkoutSettings {
+  id: 'workouts'
+  /** Zero disables automatic rest. */
+  restDurationSec: number
+}
+
+export interface ActiveWorkout {
+  session: WorkoutSession
+  state: WorkoutState
+  sets: SetEntry[]
+}

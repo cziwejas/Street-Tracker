@@ -29,15 +29,17 @@ afterEach(async () => {
 })
 
 describe('StreetTrackerDB schema and first-run seed', () => {
-  it('opens version 2 with all domain tables and a complete built-in catalogue', async () => {
+  it('opens version 3 with all domain tables and a complete built-in catalogue', async () => {
     const database = createDatabase()
     await database.open()
 
-    expect(database.verno).toBe(2)
+    expect(database.verno).toBe(3)
     expect(database.tables.map((table) => table.name).sort()).toEqual([
       'exercises',
       'setEntries',
       'workoutSessions',
+      'workoutSettings',
+      'workoutStates',
     ])
     expect(await database.workoutSessions.count()).toBe(0)
     expect(await database.setEntries.count()).toBe(0)
@@ -154,7 +156,7 @@ describe('StreetTrackerDB schema and first-run seed', () => {
     const upgradedDatabase = createDatabase(name)
     await upgradedDatabase.open()
 
-    expect(upgradedDatabase.verno).toBe(2)
+    expect(upgradedDatabase.verno).toBe(3)
     expect(await upgradedDatabase.exercises.count()).toBe(30)
     expect(await upgradedDatabase.exercises.get('builtin:front-lever')).toMatchObject({
       name: 'Waga przodem (front lever)',
@@ -162,5 +164,39 @@ describe('StreetTrackerDB schema and first-run seed', () => {
     })
     expect(await upgradedDatabase.workoutSessions.count()).toBe(0)
     expect(await upgradedDatabase.setEntries.count()).toBe(0)
+  })
+
+  it('upgrades version 2 without reseeding deleted exercises or rewriting sessions and sets', async () => {
+    const name = createDatabaseName()
+    const originalDatabase = new Dexie(name)
+    connections.push(originalDatabase)
+    originalDatabase.version(2).stores({
+      exercises: 'id, name, category, trackingType',
+      workoutSessions: 'id, date, startedAt',
+      setEntries: 'id, sessionId, exerciseId, [sessionId+order]',
+    })
+    await originalDatabase.open()
+    const exercise = {
+      id: 'builtin:pull-up', name: 'Moje podciąganie', category: 'pull',
+      trackingType: 'reps_weight', supportsAddedWeight: true, variants: ['Mój wariant'], isCustom: false,
+    }
+    const session = {
+      id: 'legacy-session', date: '2026-10-29', startedAt: '2026-10-29T10:00:00.000Z', endedAt: null, notes: 'Zachowaj',
+    }
+    const set = { id: 'legacy-set', sessionId: session.id, exerciseId: exercise.id, order: 0, reps: 12, note: 'Seria' }
+    await originalDatabase.table('exercises').add(exercise)
+    await originalDatabase.table('workoutSessions').add(session)
+    await originalDatabase.table('setEntries').add(set)
+    originalDatabase.close()
+
+    const upgradedDatabase = createDatabase(name)
+    await upgradedDatabase.open()
+
+    expect(upgradedDatabase.verno).toBe(3)
+    expect(await upgradedDatabase.exercises.toArray()).toEqual([exercise])
+    expect(await upgradedDatabase.workoutSessions.toArray()).toEqual([session])
+    expect(await upgradedDatabase.setEntries.toArray()).toEqual([set])
+    expect(await upgradedDatabase.workoutStates.count()).toBe(0)
+    expect(await upgradedDatabase.workoutSettings.count()).toBe(0)
   })
 })

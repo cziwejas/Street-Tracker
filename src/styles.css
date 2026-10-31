@@ -1,5 +1,97 @@
 @import "tailwindcss";
 
+@layer components {
+  .workout-page {
+    --tab-bar-height: calc(6.25rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 4rem;
+  }
+  .workout-active {
+    padding-bottom: 13rem;
+  }
+
+  .workout-card {
+    border: 1px solid rgb(255 255 255 / 0.1);
+    border-radius: 1.25rem;
+    background: var(--color-surface);
+    padding: 1.25rem;
+  }
+
+  .workout-button,
+  .workout-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .workout-icon-button {
+    padding: 0.5rem;
+  }
+
+  .workout-button:focus-visible,
+  .workout-icon-button:focus-visible,
+  .workout-input:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  .workout-button:disabled,
+  .workout-icon-button:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .workout-primary {
+    min-height: 52px;
+    background: var(--color-accent);
+    color: var(--color-background);
+  }
+
+  .workout-secondary {
+    background: rgb(255 255 255 / 0.06);
+    color: #f5f7f8;
+  }
+
+  .workout-input {
+    min-height: 48px;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    border-radius: 0.75rem;
+    background: var(--color-background);
+    padding: 0.625rem 0.75rem;
+    color: #f5f7f8;
+    font-size: 16px;
+  }
+
+  .workout-dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: var(--tab-bar-height);
+    z-index: 15;
+    width: 100%;
+    max-width: 48rem;
+    margin-inline: auto;
+    border-top: 1px solid rgb(255 255 255 / 0.08);
+    background: var(--color-background);
+    padding-top: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .workout-error {
+    border: 1px solid rgb(248 113 113 / 0.3);
+    border-radius: 0.75rem;
+    background: #351b20;
+    padding: 1rem;
+    color: #fecaca;
+    font-size: 0.875rem;
+  }
+}
+
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --color-background: #101418;

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StreetTrackerDB } from './db'
 import { createRepositories } from './repositories'
 
@@ -16,6 +16,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  vi.unstubAllGlobals()
   await database.delete()
 })
 
@@ -36,6 +37,29 @@ function createSession(overrides: Partial<WorkoutSessionInput> = {}) {
     ...overrides,
   })
 }
+
+describe('local network HTTP support', () => {
+  it('persists exercises, workouts, and sets when randomUUID is unavailable', async () => {
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) })
+
+    const exercise = await createExercise()
+    const session = await createSession()
+    const set = await repositories.createSetEntry({
+      sessionId: session.id,
+      exerciseId: exercise.id,
+      order: 0,
+      reps: 6,
+    })
+
+    for (const id of [exercise.id, session.id, set.id]) {
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+    }
+    expect(new Set([exercise.id, session.id, set.id]).size).toBe(3)
+    expect(await repositories.getExercise(exercise.id)).toEqual(exercise)
+    expect(await repositories.getWorkoutSession(session.id)).toEqual(session)
+    expect(await repositories.getSetEntriesForSession(session.id)).toEqual([set])
+  })
+})
 
 describe('exercise repository', () => {
   it('creates a custom exercise with defaults, reads it, and updates its progression', async () => {
