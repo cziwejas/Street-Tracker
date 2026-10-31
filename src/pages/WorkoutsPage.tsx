@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import { repositories } from '../db/repositories'
 import { ActiveSession } from '../features/workouts/ActiveSession'
@@ -18,6 +19,7 @@ export function WorkoutsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Trening</h1>
         <p className="text-xs text-muted">{new Intl.DateTimeFormat('pl-PL', { day: 'numeric', month: 'long' }).format(new Date())}</p>
       </div>
+      <Link to="/historia" className="workout-button workout-secondary mb-5 w-full justify-between text-sm"><span>Historia treningów</span><span aria-hidden="true">→</span></Link>
       {actions.error && <p className="workout-error mb-5" role="alert">{actions.error}</p>}
       {snapshot.status === 'loading' && <p className="text-sm text-muted" role="status">Wczytywanie treningu…</p>}
       {snapshot.status === 'error' && <div className="workout-card" role="alert"><p className="mb-4 text-sm text-muted">Nie udało się odczytać treningu z pamięci urządzenia.</p><button type="button" className="workout-button workout-secondary" onClick={retry}>Spróbuj ponownie</button></div>}

@@ -1,11 +1,14 @@
 import type { Exercise, SetEntry, WorkoutDraft, WorkoutSettings } from '../../db/types'
 import { useState } from 'react'
+import { AddedWeightToggle } from '../../components/AddedWeightToggle'
+import { changeAddedWeightMode, isWeightedDraft } from './inputHelpers'
 import { NumberStepper } from './NumberStepper'
 
 export function SetFields({ exercise, draft, onChange, disabled, prefix }: {
   exercise: Exercise; draft: WorkoutDraft; onChange: (draft: WorkoutDraft) => void; disabled: boolean; prefix: string
 }) {
   const variants = [...new Set([...exercise.variants, ...(draft.variant ? [draft.variant] : [])])]
+  const weighted = exercise.supportsAddedWeight && isWeightedDraft(draft)
   return (
     <div className="space-y-4">
       {variants.length > 0 && (
@@ -25,7 +28,9 @@ export function SetFields({ exercise, draft, onChange, disabled, prefix }: {
         <NumberStepper id={`${prefix}-reps`} label="Powtórzenia" value={draft.reps} min={1} integer
           disabled={disabled} onChange={(reps) => onChange({ ...draft, reps })} />
       )}
-      {exercise.supportsAddedWeight && (
+      {exercise.supportsAddedWeight && <AddedWeightToggle id={`${prefix}-weighted`} checked={weighted} disabled={disabled}
+        onChange={(checked) => onChange(changeAddedWeightMode(draft, checked))} />}
+      {weighted && (
         <NumberStepper id={`${prefix}-weight`} label="Dodatkowy ciężar" unit="kg" value={draft.addedWeightKg} step={0.5}
           disabled={disabled} onChange={(addedWeightKg) => onChange({ ...draft, addedWeightKg })} />
       )}

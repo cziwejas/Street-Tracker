@@ -41,6 +41,12 @@
     outline-offset: 3px;
   }
 
+  .history-link:focus-visible,
+  .chart-data-toggle:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
   .workout-button:disabled,
   .workout-icon-button:disabled {
     opacity: 0.45;

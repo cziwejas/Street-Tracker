@@ -1,8 +1,6 @@
 import type { Exercise, ExerciseHistoryEntry, SetEntry, WorkoutDraft } from '../../db/types'
 
-export function localWorkoutDate(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
+export { localWorkoutDate } from '../../lib/dates'
 
 export function formatClock(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds))

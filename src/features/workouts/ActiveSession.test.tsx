@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { builtinExercises } from '../../db/seed'
-import type { ActiveWorkout, SetEntry } from '../../db/types'
+import type { ActiveWorkout, SetEntry, WorkoutDraft } from '../../db/types'
 import { ActiveSession } from './ActiveSession'
 import { SetFields } from './SetFields'
 
@@ -26,6 +26,19 @@ const active: ActiveWorkout = {
 }
 
 describe('active workout screen', () => {
+  it.each([
+    { label: 'default bodyweight variant', draft: { reps: 8, durationSec: 30, addedWeightKg: 0 }, visible: false },
+    { label: 'explicit bodyweight variant', draft: { reps: 8, durationSec: 30, addedWeightKg: 0, withAddedWeight: false }, visible: false },
+    { label: 'selected weighted variant before entering kilograms', draft: { reps: 8, durationSec: 30, addedWeightKg: 0, withAddedWeight: true }, visible: true },
+    { label: 'historical weighted draft', draft: { reps: 8, durationSec: 30, addedWeightKg: 5 }, visible: true },
+  ] satisfies { label: string; draft: WorkoutDraft; visible: boolean }[])('shows added weight only for $label', ({ draft, visible }) => {
+    const html = renderToStaticMarkup(<SetFields exercise={pullUp} draft={draft} disabled={false} prefix="new" onChange={() => undefined} />)
+    expect(html).toContain('Wariant z obciążeniem')
+    expect(html).toContain('type="checkbox"')
+    expect(html.includes('for="new-weight"')).toBe(visible)
+    expect(html.includes('Zwiększ: Dodatkowy ciężar')).toBe(visible)
+  })
+
   it('groups interleaved sets by exercise with independently labelled edit/delete actions', () => {
     const html = renderToStaticMarkup(<ActiveSession active={active} exercises={exercises} history={{}}
       settings={{ id: 'workouts', restDurationSec: 90 }}
@@ -49,6 +62,7 @@ describe('active workout screen', () => {
     expect(html).toContain('for="new-time"')
     expect(html).not.toContain('for="new-reps"')
     expect(html).not.toContain('Dodatkowy ciężar')
+    expect(html).not.toContain('Wariant z obciążeniem')
     expect(html).toContain('value="12.5"')
     expect(html).toContain('<option value="Stary wariant" selected="">Stary wariant</option>')
   })

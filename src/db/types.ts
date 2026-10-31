@@ -64,6 +64,8 @@ export interface WorkoutDraft {
   reps: number
   durationSec: number
   addedWeightKg: number
+  /** Explicit weighted-mode selection; old drafts infer it from positive added weight. */
+  withAddedWeight?: boolean
   variant?: string
 }
 
@@ -86,4 +88,15 @@ export interface ActiveWorkout {
   session: WorkoutSession
   state: WorkoutState
   sets: SetEntry[]
+}
+
+export interface HistorySession {
+  session: WorkoutSession
+  sets: SetEntry[]
+}
+
+export interface WorkoutHistory {
+  exercises: Exercise[]
+  /** Completed sessions, newest first, including sessions without sets. */
+  sessions: HistorySession[]
 }

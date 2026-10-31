@@ -31,6 +31,29 @@ async function startWithExercise(exerciseId = 'builtin:pull-up') {
 }
 
 describe('persistent workout workflow', () => {
+  it('persists the weighted selection before a load is entered and logs zero after switching it off', async () => {
+    const sessionId = await startWithExercise()
+    const selected = { ...draft, addedWeightKg: 0, withAddedWeight: true }
+    await repositories.updateWorkoutDraft(sessionId, 'builtin:pull-up', selected)
+    database.close()
+    const reopened = new StreetTrackerDB(database.name)
+    connections.push(reopened)
+    const reopenedRepositories = createRepositories(reopened)
+    expect((await reopenedRepositories.getActiveWorkout())?.state.drafts['builtin:pull-up']).toEqual(selected)
+
+    const unweighted = { ...selected, withAddedWeight: false }
+    await reopenedRepositories.updateWorkoutDraft(sessionId, 'builtin:pull-up', unweighted)
+    expect(await reopenedRepositories.logWorkoutSet(sessionId, 'builtin:pull-up', unweighted, now)).toMatchObject({ addedWeightKg: 0, reps: draft.reps })
+  })
+
+  it('rejects a hidden nonzero load when the weighted variant is explicitly disabled', async () => {
+    const sessionId = await startWithExercise()
+    const invalid = { ...draft, withAddedWeight: false }
+    await expect(repositories.updateWorkoutDraft(sessionId, 'builtin:pull-up', invalid)).rejects.toMatchObject({ code: 'VALIDATION' })
+    await expect(repositories.logWorkoutSet(sessionId, 'builtin:pull-up', invalid, now)).rejects.toMatchObject({ code: 'VALIDATION' })
+    expect(await repositories.getSetEntriesForSession(sessionId)).toEqual([])
+  })
+
   it('atomically starts one session for concurrent starts and resumes it on reopening', async () => {
     const [first, second] = await Promise.all([
       repositories.startWorkout(startedAt, '2026-10-31'),

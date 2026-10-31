@@ -8,6 +8,8 @@ describe('Street Tracker routes', () => {
     ['/', 'Trening'],
     ['/cwiczenia', 'Ćwiczenia'],
     ['/progres', 'Progres'],
+    ['/historia', 'Historia'],
+    ['/historia/test-session', 'Szczegóły treningu'],
     ['/ustawienia', 'Ustawienia'],
   ])('renders the %s page and navigation', (path, title) => {
     const html = renderToStaticMarkup(
@@ -19,6 +21,6 @@ describe('Street Tracker routes', () => {
     expect(html).toMatch(new RegExp(`<h1[^>]*>${title}</h1>`))
     expect(html).toContain('aria-label="Nawigacja główna"')
     expect(html).toContain(`aria-current="page" class="`)
-    expect(html).toContain(`href="${path}"`)
+    expect(html).toContain(`href="${path.startsWith('/historia') ? '/' : path}"`)
   })
 })

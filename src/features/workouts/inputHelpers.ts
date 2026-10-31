@@ -1,4 +1,12 @@
-import type { Exercise, ExerciseCategory, TrackingType } from '../../db/types'
+import type { Exercise, ExerciseCategory, TrackingType, WorkoutDraft } from '../../db/types'
+
+export function isWeightedDraft(draft: WorkoutDraft): boolean {
+  return draft.withAddedWeight ?? draft.addedWeightKg > 0
+}
+
+export function changeAddedWeightMode(draft: WorkoutDraft, withAddedWeight: boolean): WorkoutDraft {
+  return { ...draft, withAddedWeight, addedWeightKg: withAddedWeight ? draft.addedWeightKg : 0 }
+}
 
 export const categoryLabels: Record<ExerciseCategory, string> = {
   push: 'Pchanie',

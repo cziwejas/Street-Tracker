@@ -1,7 +1,10 @@
-import { Outlet } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 
 export function AppShell() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
   return (
     <div className="app-shell mx-auto flex min-h-dvh max-w-3xl flex-col sm:border-x sm:border-white/5">
       <a

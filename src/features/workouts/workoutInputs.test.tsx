@@ -5,7 +5,27 @@ import { builtinExercises } from '../../db/seed'
 import { ExercisePicker } from './ExercisePicker'
 import { NumberStepper } from './NumberStepper'
 import { WorkoutDialog } from './WorkoutDialog'
-import { adjustStepperValue, filterExercises, normalizeSearch, parseStepperInput } from './inputHelpers'
+import { adjustStepperValue, changeAddedWeightMode, filterExercises, isWeightedDraft, normalizeSearch, parseStepperInput } from './inputHelpers'
+
+describe('weighted variant selection', () => {
+  const draft = { reps: 8, durationSec: 30, addedWeightKg: 10, variant: 'Bez pomocy' }
+
+  it('clears the hidden load when switching to bodyweight and does not restore it on reselecting the weighted variant', () => {
+    const unweighted = changeAddedWeightMode(draft, false)
+    expect(unweighted).toEqual({ ...draft, withAddedWeight: false, addedWeightKg: 0 })
+    expect(isWeightedDraft(unweighted)).toBe(false)
+    const weighted = changeAddedWeightMode(unweighted, true)
+    expect(weighted).toEqual({ ...draft, withAddedWeight: true, addedWeightKg: 0 })
+    expect(isWeightedDraft(weighted)).toBe(true)
+    expect(draft.addedWeightKg).toBe(10)
+  })
+
+  it('retains a selected weighted variant at zero and infers the selection for older drafts', () => {
+    expect(isWeightedDraft({ ...draft, withAddedWeight: true, addedWeightKg: 0 })).toBe(true)
+    expect(isWeightedDraft(draft)).toBe(true)
+    expect(isWeightedDraft({ ...draft, addedWeightKg: 0 })).toBe(false)
+  })
+})
 
 describe('workout numeric input', () => {
   it('accepts Polish decimals and preserves fractional historical values', () => {

@@ -15,6 +15,7 @@ import type {
   WorkoutDraft,
   WorkoutSettings,
   WorkoutState,
+  WorkoutHistory,
 } from './types'
 import {
   normalizeExercise,
@@ -199,6 +200,28 @@ export function createRepositories(database: StreetTrackerDB = db) {
     })
   }
 
+  /** A consistent snapshot for history and progress; active workouts are excluded. */
+  async function getWorkoutHistory(): Promise<WorkoutHistory> {
+    return database.transaction('r', database.exercises, database.workoutSessions, database.setEntries, async () => {
+      const [exercises, sessions] = await Promise.all([listExercises(), listWorkoutSessions()])
+      const completed = sessions.filter((session) => session.endedAt !== null).reverse()
+      const sets = await database.setEntries.where('sessionId').anyOf(completed.map((session) => session.id)).toArray()
+      const setsBySession = new Map<string, SetEntry[]>()
+      for (const set of sets) {
+        const group = setsBySession.get(set.sessionId) ?? []
+        group.push(set)
+        setsBySession.set(set.sessionId, group)
+      }
+      return {
+        exercises,
+        sessions: completed.map((session) => ({
+          session,
+          sets: (setsBySession.get(session.id) ?? []).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id)),
+        })),
+      }
+    })
+  }
+
   const workoutTables = [
     database.workoutSessions,
     database.setEntries,
@@ -224,6 +247,15 @@ export function createRepositories(database: StreetTrackerDB = db) {
     }
     if (draft.addedWeightKg > 0 && !exercise.supportsAddedWeight) {
       throw new RepositoryError('VALIDATION', 'To ćwiczenie nie obsługuje dodatkowego ciężaru.')
+    }
+    if (draft.withAddedWeight !== undefined && typeof draft.withAddedWeight !== 'boolean') {
+      throw new RepositoryError('VALIDATION', 'Wybierz wariant z obciążeniem lub bez obciążenia.')
+    }
+    if (draft.withAddedWeight === true && !exercise.supportsAddedWeight) {
+      throw new RepositoryError('VALIDATION', 'To ćwiczenie nie obsługuje dodatkowego ciężaru.')
+    }
+    if (draft.withAddedWeight === false && draft.addedWeightKg > 0) {
+      throw new RepositoryError('VALIDATION', 'Dodatkowy ciężar wymaga zaznaczenia wariantu z obciążeniem.')
     }
     if (draft.variant !== undefined && !draft.variant.trim()) {
       throw new RepositoryError('VALIDATION', 'Wariant serii musi mieć niepustą nazwę.')
@@ -438,6 +470,7 @@ export function createRepositories(database: StreetTrackerDB = db) {
     updateSetEntry,
     deleteSetEntry,
     getHistoryForExercise,
+    getWorkoutHistory,
     getSessionsByDateRange,
     getWorkoutState,
     getWorkoutSettings,
