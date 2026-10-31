@@ -22,7 +22,7 @@ The active session, selected exercises, next-set drafts, rest deadline, and rest
 
 ## Run locally
 
-Install Node.js 22.13+ (22.x) or Node.js 24+ and npm (Node.js 24 LTS was used for development), then run:
+Install Node.js 22.19+ (22.x) or Node.js 24+ and npm (the Lighthouse tool requires at least 22.19), then run:
 
 ```sh
 npm install
@@ -59,8 +59,67 @@ Vite preview is a local testing server. Use the port printed in its output.
 2. Serve the preview URL through HTTPS, using either a local HTTPS reverse proxy with a certificate trusted by the iPhone or an HTTPS tunnel. Configure that tool separately; `vite preview` does not enable HTTPS by itself. Keep a stable URL when testing stored data and updates.
 3. Open the HTTPS URL in Safari on the iPhone while online. HTTP over a LAN IP is sufficient to inspect the UI, but service workers require a secure context. The `localhost` exception refers to the device running the browser, so your computer's LAN IP does not receive that exception. See [MDN's service worker requirements](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API).
 4. In Safari, use **Share → Add to Home Screen**. Leave **Open as Web App** enabled if that option is shown, then tap **Add**. The exact placement of Share depends on the Safari layout. See [Apple's Home Screen web app instructions](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios).
-5. Launch **Street Tracker** from the Home Screen while online and let it finish loading so the service worker can install and cache the app shell. Navigate through all four tabs, checking the notch and home indicator areas.
-6. Enable Airplane Mode with Wi-Fi also off, close and reopen the Home Screen app, and verify that all tabs, history, session details, and progress charts still load. Repeat the workout and history checks below while offline. Go online again to receive service worker updates. Updates are configured with `autoUpdate`.
+5. Launch **Street Tracker** from the Home Screen while online and wait for **Aplikacja gotowa do pracy offline**. This confirms the initial precache finished, including the chart module; merely seeing the first screen is not enough. Check the notch, status bar and home indicator in portrait and landscape. Text inputs, search, selects and file selection use at least 16px text; focusing them should not zoom the page, while pinch zoom remains available. Check dialogs and the fixed workout actions with the keyboard open.
+6. Enable Airplane Mode with Wi-Fi also off, close and reopen the Home Screen app, and verify that all tabs, history, session details, and progress charts still load, including pages not previously visited. Repeat the workout and history checks below while offline.
+7. Go online, deploy a new production build to the same HTTPS origin, and return to the app. **Dostępna jest nowa wersja** must offer **Aktualizuj** and **Później**, without reloading automatically. Defer it, confirm that the workout is usable, then leave and return to see the prompt again. Wait for **Zapisano na urządzeniu**, close any open forms and accept. Check that the updated app resumes the saved workout. Also try accepting after disconnecting, once the new version has finished downloading.
+
+## Offline, updates and assets
+
+The production service worker precaches HTML, CSS, all JavaScript chunks (including lazy charts), the manifest, icons and launch images. Navigation falls back to the cached app shell so direct history/progress URLs work offline. Workout data stays in IndexedDB; service worker cache cleanup never deletes that database. Registration failures show a Polish message; offline readiness is only announced after the initial worker installs. Offline use requires one completed online installation in the browser or Home Screen app being used.
+
+Updates use `registerType: 'prompt'`. The browser checks during registration; the app also checks on focus, foreground visibility, reconnection and hourly while visible. An installed update waits for consent. **Później** keeps the current page, and the prompt returns on the next foreground check. **Aktualizuj** activates the downloaded worker and reloads controlled windows, including other open tabs. Saved data survives; an unfinished form or in-flight write should be completed before accepting. Updates during the very first visit also reload correctly: native `controllerchange` handles the case where Workbox still considers the session an initial install. Browsers can also activate a waiting worker naturally after all old windows close. When upgrading from the earlier `autoUpdate` build, close all old app windows once to allow the first prompt-enabled version to take control; that old bundle has no prompt UI.
+
+`public/favicon.svg` is the source for opaque 192/512px app icons, separate maskable 192/512px icons with the mark inside the central safe circle, the 180px Apple touch icon and a 32px PNG favicon. iPhone launch PNGs cover 13 viewport/pixel-ratio combinations in both orientations (26 images), selected by exact media queries in `index.html`. Regenerate the PNGs and startup links after changing the mark:
+
+```sh
+npm run pwa:assets
+```
+
+The launch images use only the vector mark, so their appearance does not depend on system fonts. The header, navigation, dialogs, update notice and keyboard skip link respect safe-area insets. In viewports up to 500px high, workout actions scroll with the content so the fixed panel cannot obscure the form; portrait phone views keep the fixed action panel.
+
+Deploy the complete `dist/` atomically. Serve real static files before the SPA fallback; deep links need to fall back to `index.html`. Serve `sw.js`, `index.html` and the manifest with revalidation (`Cache-Control: no-cache`), and hashed `/assets/` files with long-lived immutable caching. Keep the app at the origin root, matching the manifest scope and start URL. Never replace missing JavaScript with HTML. Verify these headers on the real host; Vite preview does not represent a production CDN.
+
+## Automated PWA audit
+
+Install the Playwright Chromium browser once, then run the production browser checks:
+
+```sh
+npx playwright install chromium
+npm run test:pwa
+```
+
+The command builds the app and starts a loopback-only production fixture on port 4174. Its simulated second release changes HTML and the corresponding service worker precache revision without editing source files. Tests use disposable storage and verify cold offline startup after visiting only `/`, previously unvisited routes/charts, workout writes/resume, history deep links, deferring/accepting an update offline, saved-data survival, Chrome installability in a regular profile, icon dimensions/opacity/maskable safe zones, launch images, 16px controls, touch targets and portrait/landscape layout. On Windows, an installed Chrome can be used instead of downloading Chromium: set `$env:PLAYWRIGHT_CHANNEL = 'chrome'` in PowerShell before the command. Screenshots and failure traces go to ignored `test-results/`.
+
+For Lighthouse, serve a production build in one terminal and audit that URL in another (Chrome must be installed; `CHROME_PATH` can select its executable):
+
+```sh
+npm run build
+npm run preview -- --host 127.0.0.1 --port 4175 --strictPort
+# In another terminal:
+npm run audit:lighthouse -- http://127.0.0.1:4175
+```
+
+HTML and JSON reports are written to ignored `reports/lighthouse/mobile.html` and `mobile.json`. [Lighthouse removed its PWA category in version 12](https://github.com/GoogleChrome/lighthouse/releases/tag/v12.0.0); current Lighthouse results cover performance, accessibility, best practices and SEO. Offline behavior, the manifest/service worker and update activation are checked separately by the browser tests above.
+
+Audit on **2026-11-01**, Windows, Chrome 156, Lighthouse 13.6.0, production `/`, mobile emulation with Lighthouse's default simulated throttling:
+
+| Check | Result |
+| --- | --- |
+| Lighthouse performance / accessibility / best practices / SEO | **99 / 100 / 100 / 100** |
+| FCP / LCP / total blocking time / CLS | 0.8 s / 2.3 s / 0 ms / 0 |
+| Production PWA browser scenarios | **3 passed** |
+| Chrome installability errors in a regular profile | **None** |
+| Physical iPhone / installed iOS app | **Not tested: no device available** |
+
+Scores describe a local clean profile, not deployed-host performance or an iPhone certification. Remaining Lighthouse performance opportunities include unused JavaScript in the shared app bundle and the CSS render dependency; lazy charts are precached for offline use but only executed when needed.
+
+## Remaining iOS limitations
+
+- **Installation and first use:** use Safari's Share → Add to Home Screen flow; the app has no native install dialog on iOS. A trusted HTTPS origin and a complete first online cache installation are required. Check Safari and the Home Screen app independently; local data is not synchronized between installations, profiles, origins or devices.
+- **Storage:** iOS can remove local website data under storage pressure, and clearing website data removes workouts and the offline cache. Persistent-storage permission is browser-controlled, with full Storage API support from Safari 17. Keep exported JSON backups. See [WebKit's storage policy](https://webkit.org/blog/14403/updates-to-storage-policy/).
+- **Background execution:** iOS can suspend the app, timers and update checks. The rest timer catches up from its stored deadline on return, and update checks resume in the foreground; downloading updates or running timers continuously while the app is closed is not guaranteed.
+- **Status bar, splash and icons:** `black-translucent` is paired with the dark background and safe-area padding, as described by [Apple's status bar documentation](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariHTMLRef/Articles/MetaTags.html). Status bar appearance and launch snapshots remain OS-controlled. Startup PNGs cover the listed iPhone dimensions, not every Display Zoom mode, future screen size or iPad; unmatched modes use iOS's own launch behavior. iOS may cache an old icon or snapshot after an update. See [Apple's launch-image documentation](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html).
+- **Device verification remains:** Chromium phone emulation cannot validate a real notch/home indicator, Safari keyboard resizing/focus zoom, Home Screen installation, status bar colors or actual splash selection. Run the iPhone checklist above on a trusted HTTPS deployment, including landscape, keyboard-open dialogs, offline relaunch and a second deployment. None of those physical-device checks is claimed as passed by this audit.
 
 ## Workout checks
 
@@ -100,7 +159,9 @@ Use a disposable browser profile or origin when checking replacement. Keep an in
 ## Project layout
 
 ```text
-public/                 Placeholder PWA and Apple touch icons
+public/                 PWA/maskable/Apple touch icons and iPhone launch images
+scripts/                Reproducible PWA assets and Lighthouse audit
+tests/pwa/              Production offline/update/installability browser checks
 src/
   components/           Shared UI, including the app shell and tab bar
   db/                   Types, Dexie schema, seed, repositories, and database tests

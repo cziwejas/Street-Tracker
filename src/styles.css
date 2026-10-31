@@ -1,6 +1,23 @@
 @import "tailwindcss";
 
 @layer components {
+  .pwa-notice {
+    position: fixed;
+    top: calc(0.75rem + env(safe-area-inset-top, 0px));
+    left: max(0.75rem, env(safe-area-inset-left, 0px));
+    right: max(0.75rem, env(safe-area-inset-right, 0px));
+    z-index: 40;
+    max-width: 32rem;
+    max-height: calc(100dvh - 1.5rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    margin-inline: auto;
+    overflow-y: auto;
+    border: 1px solid rgb(198 243 107 / 0.35);
+    border-radius: 1rem;
+    background: var(--color-surface);
+    padding: 1rem;
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+  }
+
   .workout-page {
     --tab-bar-height: calc(6.25rem + env(safe-area-inset-bottom, 0px));
     padding-bottom: 4rem;
@@ -88,6 +105,19 @@
     padding-bottom: 0.5rem;
   }
 
+  /* Leave the form usable in landscape and other short viewports. */
+  @media (max-height: 500px) {
+    .workout-dock {
+      position: static;
+      margin-top: 1.5rem;
+    }
+
+    .workout-page,
+    .workout-active {
+      padding-bottom: 0;
+    }
+  }
+
   .workout-error {
     border: 1px solid rgb(248 113 113 / 0.3);
     border-radius: 0.75rem;
@@ -120,6 +150,20 @@
     min-width: 320px;
     min-height: 100vh;
     min-height: 100dvh;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+    scroll-padding-bottom: calc(8rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Safari zooms focused text controls below 16px. Keep pinch-to-zoom available. */
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 16px);
   }
 
   ::selection {

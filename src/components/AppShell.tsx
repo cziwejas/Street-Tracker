@@ -8,7 +8,7 @@ export function AppShell() {
   return (
     <div className="app-shell mx-auto flex min-h-dvh max-w-3xl flex-col sm:border-x sm:border-white/5">
       <a
-        className="sr-only z-50 min-h-11 rounded-xl bg-accent px-4 py-3 font-semibold text-background focus:not-sr-only focus:fixed focus:left-5 focus:top-5"
+        className="sr-only z-50 min-h-11 rounded-xl bg-accent px-4 py-3 font-semibold text-background focus:not-sr-only focus:fixed focus:left-[max(1.25rem,env(safe-area-inset-left,0px))] focus:top-[calc(1.25rem+env(safe-area-inset-top,0px))]"
         href="#main-content"
       >
         Przejdź do treści
