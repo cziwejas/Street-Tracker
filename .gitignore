@@ -29,3 +29,5 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Local deployment instructions
+/README.deploy.local.md

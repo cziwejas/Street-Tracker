@@ -1,0 +1,38 @@
+name: Kontrola jakości
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, testy i build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Pobierz repozytorium
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Przygotuj Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Zainstaluj zależności z pliku blokady
+        run: npm ci
+
+      - name: Sprawdź lint
+        run: npm run lint
+
+      - name: Uruchom testy
+        run: npm test
+
+      - name: Zbuduj aplikację
+        run: npm run build

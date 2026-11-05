@@ -1,0 +1,10 @@
+# Rewrite only app routes so static assets and missing JavaScript never become HTML.
+# Keep this list aligned with src/App.tsx when adding routes.
+/cwiczenia       /index.html 200
+/progres         /index.html 200
+/ustawienia      /index.html 200
+/historia        /index.html 200
+/cwiczenia/      /index.html 200
+/progres/        /index.html 200
+/ustawienia/     /index.html 200
+/historia/*      /index.html 200

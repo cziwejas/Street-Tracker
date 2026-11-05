@@ -77,8 +77,6 @@ npm run pwa:assets
 
 The launch images use only the vector mark, so their appearance does not depend on system fonts. The header, navigation, dialogs, update notice and keyboard skip link respect safe-area insets. In viewports up to 500px high, workout actions scroll with the content so the fixed panel cannot obscure the form; portrait phone views keep the fixed action panel.
 
-Deploy the complete `dist/` atomically. Serve real static files before the SPA fallback; deep links need to fall back to `index.html`. Serve `sw.js`, `index.html` and the manifest with revalidation (`Cache-Control: no-cache`), and hashed `/assets/` files with long-lived immutable caching. Keep the app at the origin root, matching the manifest scope and start URL. Never replace missing JavaScript with HTML. Verify these headers on the real host; Vite preview does not represent a production CDN.
-
 ## Automated PWA audit
 
 Install the Playwright Chromium browser once, then run the production browser checks:

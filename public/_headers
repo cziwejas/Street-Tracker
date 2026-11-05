@@ -1,0 +1,28 @@
+# Avoid overlapping Cache-Control rules: Cloudflare joins matching values.
+/
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-cache
+
+/sw.js
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache
+
+/cwiczenia*
+  Cache-Control: no-cache
+
+/progres*
+  Cache-Control: no-cache
+
+/ustawienia*
+  Cache-Control: no-cache
+
+/historia*
+  Cache-Control: no-cache
+
+# Vite emits content-hashed JavaScript and CSS here.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
