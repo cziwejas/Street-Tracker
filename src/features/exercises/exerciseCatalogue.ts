@@ -1,7 +1,7 @@
-import { gymExercises } from '../../db/gymSeed'
+import { currentGymExercises } from '../../db/gymSeed'
 import type { Exercise } from '../../db/types'
 
-const gymOnlyIds = new Set(gymExercises.map((exercise) => exercise.id))
+const gymOnlyIds = new Set(currentGymExercises.map((exercise) => exercise.id))
 const sharedGymIds = new Set([
   'builtin:squat', 'builtin:bulgarian-split-squat', 'builtin:lunge', 'builtin:calf-raise',
 ])

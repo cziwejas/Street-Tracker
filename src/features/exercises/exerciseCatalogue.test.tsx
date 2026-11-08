@@ -1,25 +1,30 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { gymExercises } from '../../db/gymSeed'
+import { currentGymExercises } from '../../db/gymSeed'
 import { builtinExercises } from '../../db/seed'
 import type { Exercise } from '../../db/types'
 import { ExercisePicker } from '../workouts/ExercisePicker'
 import { filterExercises } from '../workouts/inputHelpers'
 import { exercisesForMode } from './exerciseCatalogue'
 
-const exercises = [...builtinExercises, ...gymExercises]
+const exercises = [...builtinExercises, ...currentGymExercises]
 
 describe('exercise catalogue modes', () => {
   it('keeps the original catalogue with gym mode off and includes lower-body gym exercises when on', () => {
     expect(exercisesForMode(exercises, false)).toEqual(builtinExercises)
     const gym = exercisesForMode(exercises, true)
-    expect(gym).toHaveLength(14)
+    expect(gym).toHaveLength(15)
     expect(gym.every((exercise) => exercise.category === 'legs')).toBe(true)
     expect(gym.map((exercise) => exercise.id)).toEqual(expect.arrayContaining([
       'builtin:hip-thrust', 'builtin:bulgarian-split-squat', 'builtin:romanian-deadlift', 'builtin:hip-abduction',
     ]))
     expect(filterExercises(gym, 'bulgarskie').map((exercise) => exercise.id)).toEqual(['builtin:bulgarian-split-squat'])
     expect(filterExercises(gym, 'hip thrust').map((exercise) => exercise.id)).toEqual(['builtin:hip-thrust'])
+    expect(filterExercises(gym, 'kickback').map((exercise) => exercise.id)).toEqual(['builtin:cable-kickback'])
+    expect(filterExercises(gym, 'przywodzenie nog').map((exercise) => exercise.id)).toEqual(['builtin:hip-adduction'])
+    expect(gym.find((exercise) => exercise.id === 'builtin:hip-adduction')).toMatchObject({
+      trackingType: 'reps_weight', supportsAddedWeight: true,
+    })
   })
 
   it('includes custom leg exercises in gym mode and uses stable IDs for renamed built-ins', () => {

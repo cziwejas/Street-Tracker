@@ -21,3 +21,23 @@ export const gymExercises: readonly Exercise[] = ([
   variants: [],
   isCustom: false,
 }))
+
+/** Added in v6 without changing the released v5 catalogue. */
+export const hipAdduction: Exercise = {
+  id: 'builtin:hip-adduction',
+  name: 'Przywodzenie nóg na maszynie',
+  category: 'legs',
+  trackingType: 'reps_weight',
+  supportsAddedWeight: true,
+  variants: [],
+  isCustom: false,
+}
+
+export const kickbackName = 'Prostowanie nogi w tył na wyciągu (kickback)'
+
+export const currentGymExercises: readonly Exercise[] = [
+  ...gymExercises.map((exercise) => exercise.id === 'builtin:cable-kickback'
+    ? { ...exercise, name: kickbackName }
+    : exercise),
+  hipAdduction,
+]

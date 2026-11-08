@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import { builtinExercises } from './seed'
-import { gymExercises } from './gymSeed'
+import { currentGymExercises, gymExercises, hipAdduction, kickbackName } from './gymSeed'
 import type { BackupMetadata, Exercise, SetEntry, WorkoutSession, WorkoutSettings, WorkoutState } from './types'
 
 export class StreetTrackerDB extends Dexie {
@@ -43,9 +43,20 @@ export class StreetTrackerDB extends Dexie {
       await exercises.bulkAdd(gymExercises.filter((_, index) => existing[index] === undefined))
     })
 
+    this.version(6).stores({}).upgrade(async (transaction) => {
+      const exercises = transaction.table<Exercise, string>('exercises')
+      if (await exercises.get(hipAdduction.id) === undefined) {
+        await exercises.add(hipAdduction)
+      }
+      const kickback = await exercises.get('builtin:cable-kickback')
+      if (kickback && !kickback.isCustom && kickback.name === 'Prostowanie nogi w tył na wyciągu') {
+        await exercises.update(kickback.id, { name: kickbackName })
+      }
+    })
+
     // New databases start directly at the latest version; upgrade() is skipped.
     this.on('populate', async (transaction) => {
-      await transaction.table<Exercise, string>('exercises').bulkAdd([...builtinExercises, ...gymExercises])
+      await transaction.table<Exercise, string>('exercises').bulkAdd([...builtinExercises, ...currentGymExercises])
     })
   }
 }
