@@ -2,6 +2,19 @@ import type { Exercise, ExerciseHistoryEntry, SetEntry, WorkoutDraft } from '../
 
 export { localWorkoutDate } from '../../lib/dates'
 
+const pluralRules = new Intl.PluralRules('pl-PL')
+const countLabels = {
+  series: { one: 'seria', few: 'serie', other: 'serii' },
+  exercises: { one: 'ćwiczenie', few: 'ćwiczenia', other: 'ćwiczeń' },
+  workouts: { one: 'trening', few: 'treningi', other: 'treningów' },
+}
+
+export function formatWorkoutCount(count: number, kind: keyof typeof countLabels): string {
+  const forms = countLabels[kind]
+  const category = pluralRules.select(count)
+  return `${count} ${category === 'one' || category === 'few' ? forms[category] : forms.other}`
+}
+
 export function formatClock(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds))
   const hours = Math.floor(whole / 3600)
@@ -29,7 +42,10 @@ export function previousExerciseSet(history: ExerciseHistoryEntry[]): ExerciseHi
   return history.filter((entry) => entry.session.id === newestSessionId).at(-1)
 }
 
+export function describeSetValue(set: SetEntry, exercise: Exercise): string {
+  return exercise.trackingType === 'time' ? `${set.durationSec ?? 0} s` : `${set.reps ?? 0} powt.`
+}
+
 export function describeSet(set: SetEntry, exercise: Exercise): string {
-  const value = exercise.trackingType === 'time' ? `${set.durationSec ?? 0} s` : `${set.reps ?? 0} powt.`
-  return `${value}${exercise.supportsAddedWeight && (set.addedWeightKg ?? 0) > 0 ? ` · +${set.addedWeightKg?.toLocaleString('pl-PL')} kg` : ''}`
+  return `${describeSetValue(set, exercise)}${exercise.supportsAddedWeight && (set.addedWeightKg ?? 0) > 0 ? ` · +${set.addedWeightKg?.toLocaleString('pl-PL')} kg` : ''}`
 }

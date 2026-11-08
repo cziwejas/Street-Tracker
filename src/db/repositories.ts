@@ -517,6 +517,13 @@ export function createRepositories(database: StreetTrackerDB = db) {
     })
   }
 
+  async function discardWorkout(sessionId: string): Promise<void> {
+    await database.transaction('rw', database.workoutSessions, database.setEntries, database.workoutStates, async () => {
+      await requireOpenWorkout(sessionId)
+      await deleteWorkoutSession(sessionId)
+    })
+  }
+
   async function stopWorkoutRest(sessionId: string): Promise<WorkoutState> {
     return database.transaction('rw', workoutTables, async () => {
       await requireOpenWorkout(sessionId)
@@ -561,6 +568,7 @@ export function createRepositories(database: StreetTrackerDB = db) {
     logWorkoutSet,
     repeatWorkoutSet,
     finishWorkout,
+    discardWorkout,
     stopWorkoutRest,
   }
 }

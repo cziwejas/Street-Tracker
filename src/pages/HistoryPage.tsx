@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { describeVolume, findPersonalRecords, summarizeVolume, type PersonalRecord } from '../features/progress/progressHelpers'
 import { PrBadge } from '../features/progress/PrBadge'
 import { DeleteWorkoutButton } from '../features/workouts/DeleteWorkoutButton'
 import { HistoryStatus } from '../features/workouts/HistoryStatus'
 import { useHistoryData } from '../features/workouts/useHistoryData'
+import { formatWorkoutCount } from '../features/workouts/workoutHelpers'
 import { formatDate, isInDateRange, type DateRange } from '../lib/dates'
 
 export function HistoryPage() {
   const { snapshot, retry } = useHistoryData()
-  const [range, setRange] = useState<DateRange>('4weeks')
+  const [params] = useSearchParams()
+  const [range, setRange] = useState<DateRange>(params.get('zakres') === 'wszystkie' ? 'all' : '4weeks')
   const records = useMemo(() => snapshot.status === 'ready' ? findPersonalRecords(snapshot.data) : new Map<string, PersonalRecord>(), [snapshot])
   const sessions = snapshot.status === 'ready' ? snapshot.data.sessions.filter(({ session }) => isInDateRange(session.date, range)) : []
 
@@ -34,7 +36,7 @@ export function HistoryPage() {
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="text-base font-semibold"><time dateTime={entry.session.date}>{formatDate(entry.session.date)}</time></h2><span aria-hidden="true" className="text-muted">↗</span></div>
               <p className="break-words text-sm leading-relaxed text-muted">{names.join(' · ') || 'Bez ćwiczeń'}</p>
               <p className="mt-3 text-xs leading-relaxed"><span className="text-muted">Objętość łącznie: </span>{describeVolume(summarizeVolume(entry, snapshot.data.exercises))}</p>
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted"><span>Serie: {entry.sets.length} · Ćwiczenia: {exerciseIds.length}</span>{prCount > 0 && <><PrBadge /><span>Rekordy: {prCount}</span></>}</div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted"><span>{formatWorkoutCount(exerciseIds.length, 'exercises')} · {formatWorkoutCount(entry.sets.length, 'series')}</span>{prCount > 0 && <><PrBadge /><span>Rekordy: {prCount}</span></>}</div>
             </Link><div className="mt-1 flex justify-end"><DeleteWorkoutButton session={entry.session} /></div></li>
           })}
         </ol>

@@ -69,7 +69,7 @@ describe('active workout screen', () => {
     const html = renderToStaticMarkup(<ActiveSession active={active} exercises={exercises} history={{}}
       settings={{ id: 'workouts', restDurationSec: 90 }}
       actions={{ busy: false, pending: 0, error: null, save: () => undefined, perform: async () => undefined }}
-      onFinished={() => undefined} />)
+      dock={null} onFinished={() => undefined} />)
 
     const pullUpSection = html.slice(html.indexOf('<article'), html.indexOf('</article>'))
     expect(pullUpSection).toContain('8 powt.')
@@ -77,9 +77,10 @@ describe('active workout screen', () => {
     expect(pullUpSection).not.toContain('45 s')
     expect(html).toContain('aria-label="Edytuj serię 2: Podciąganie nachwytem"')
     expect(html).toContain('aria-label="Usuń serię 1: Deska"')
-    expect(html).toContain('form="workout-log-form"')
-    expect(html).toContain('Powtórz poprzednią serię')
-    expect(html).toContain('aria-label="Ustaw domyślną przerwę"')
+    expect(html).toContain('id="workout-log-form"')
+    expect(html).toContain('2 ćw. · 3 serie')
+    expect(html).toContain('Seria 3')
+    expect(html).not.toContain('Czas przerwy')
   })
 
   it('uses time for static exercises and retains a historical variant removed from the catalogue', () => {
