@@ -1,5 +1,7 @@
 import { useId, useState } from 'react'
 import type { Exercise } from '../../db/types'
+import { exercisesForMode } from '../exercises/exerciseCatalogue'
+import { GymModeToggle } from '../exercises/GymModeToggle'
 import { categoryLabels, filterExercises, trackingLabels } from './inputHelpers'
 import { WorkoutDialog } from './WorkoutDialog'
 
@@ -7,18 +9,21 @@ interface ExercisePickerProps {
   exercises: Exercise[]
   selectedIds: string[]
   busy: boolean
+  gymMode: boolean
+  onGymModeChange: (checked: boolean) => void
   error?: string | null
   onSelect: (exerciseId: string) => void
   onClose: () => void
 }
 
-export function ExercisePicker({ exercises, selectedIds, busy, error, onSelect, onClose }: ExercisePickerProps) {
+export function ExercisePicker({ exercises, selectedIds, busy, gymMode, onGymModeChange, error, onSelect, onClose }: ExercisePickerProps) {
   const [query, setQuery] = useState('')
   const searchId = useId()
-  const results = filterExercises(exercises, query)
+  const results = filterExercises(exercisesForMode(exercises, gymMode), query)
 
   return (
     <WorkoutDialog title="Dodaj ćwiczenie" description="Wybierz ćwiczenie, aby zacząć zapisywać serie." onClose={onClose} busy={busy} error={error}>
+      <GymModeToggle checked={gymMode} disabled={busy} onChange={onGymModeChange} />
       <label htmlFor={searchId} className="sr-only">Szukaj ćwiczenia</label>
       <input id={searchId} type="search" autoFocus autoComplete="off" placeholder="Szukaj ćwiczenia…" value={query} onChange={(event) => setQuery(event.currentTarget.value)} className="mb-4 min-h-12 w-full rounded-xl border border-white/15 bg-background px-4 text-base placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" />
       <p role="status" className="mb-2 text-xs text-muted">Znaleziono: {results.length}</p>

@@ -31,6 +31,27 @@ async function startWithExercise(exerciseId = 'builtin:pull-up') {
 }
 
 describe('persistent workout workflow', () => {
+  it('persists gym mode independently of rest settings and preserves selected exercises and sets', async () => {
+    const sessionId = await startWithExercise()
+    const set = await repositories.logWorkoutSet(sessionId, 'builtin:pull-up', draft, now)
+    const active = await repositories.getActiveWorkout()
+    await repositories.updateWorkoutSettings({ gymMode: true })
+    await repositories.updateWorkoutSettings({ restDurationSec: 120 })
+    expect(await repositories.getActiveWorkout()).toEqual(active)
+    database.close()
+    const reopened = new StreetTrackerDB(database.name)
+    connections.push(reopened)
+    const restored = createRepositories(reopened)
+    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', gymMode: true, restDurationSec: 120 })
+    await restored.addWorkoutExercise(sessionId, 'builtin:hip-thrust')
+    const gymSet = await restored.logWorkoutSet(sessionId, 'builtin:hip-thrust', { ...draft, reps: 12, addedWeightKg: 40 }, now)
+    expect(gymSet).toMatchObject({ reps: 12, addedWeightKg: 40, exerciseId: 'builtin:hip-thrust' })
+    await restored.updateWorkoutSettings({ gymMode: false })
+    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', gymMode: false, restDurationSec: 120 })
+    expect((await restored.getActiveWorkout())?.state.exerciseIds).toEqual(['builtin:pull-up', 'builtin:hip-thrust'])
+    expect(await restored.getSetEntriesForSession(sessionId)).toEqual([set, gymSet])
+  })
+
   it('persists the weighted selection before a load is entered and logs zero after switching it off', async () => {
     const sessionId = await startWithExercise()
     const selected = { ...draft, addedWeightKg: 0, withAddedWeight: true }

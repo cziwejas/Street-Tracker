@@ -1,6 +1,7 @@
 import Dexie from 'dexie'
 import { afterEach, describe, expect, it } from 'vitest'
 import { StreetTrackerDB } from './db'
+import { gymExercises } from './gymSeed'
 
 const connections: Dexie[] = []
 const databaseNames = new Set<string>()
@@ -29,11 +30,11 @@ afterEach(async () => {
 })
 
 describe('StreetTrackerDB schema and first-run seed', () => {
-  it('opens version 4 with all domain tables and a complete built-in catalogue', async () => {
+  it('opens version 5 with all domain tables and both built-in catalogues', async () => {
     const database = createDatabase()
     await database.open()
 
-    expect(database.verno).toBe(4)
+    expect(database.verno).toBe(5)
     expect(database.tables.map((table) => table.name).sort()).toEqual([
       'backupMetadata',
       'exercises',
@@ -46,9 +47,9 @@ describe('StreetTrackerDB schema and first-run seed', () => {
     expect(await database.setEntries.count()).toBe(0)
 
     const exercises = await database.exercises.toArray()
-    expect(exercises).toHaveLength(30)
-    expect(new Set(exercises.map((exercise) => exercise.id)).size).toBe(30)
-    expect(new Set(exercises.map((exercise) => exercise.name)).size).toBe(30)
+    expect(exercises).toHaveLength(40)
+    expect(new Set(exercises.map((exercise) => exercise.id)).size).toBe(40)
+    expect(new Set(exercises.map((exercise) => exercise.name)).size).toBe(40)
     expect(new Set(exercises.map((exercise) => exercise.category))).toEqual(
       new Set(['push', 'pull', 'legs', 'core', 'skills']),
     )
@@ -64,6 +65,8 @@ describe('StreetTrackerDB schema and first-run seed', () => {
         'builtin:planche',
         'builtin:front-lever',
         'builtin:pistol-squat',
+        'builtin:hip-thrust',
+        'builtin:leg-press',
       ]),
     )
   })
@@ -106,6 +109,7 @@ describe('StreetTrackerDB schema and first-run seed', () => {
       variants: ['Mój pierwszy krok', 'Mój drugi krok'],
     })
     await database.exercises.delete('builtin:dip')
+    await database.exercises.delete('builtin:hip-thrust')
     await database.exercises.add({
       id: 'custom:test-exercise',
       name: 'Moje ćwiczenie',
@@ -120,12 +124,13 @@ describe('StreetTrackerDB schema and first-run seed', () => {
     const reopenedDatabase = createDatabase(database.name)
     await reopenedDatabase.open()
 
-    expect(await reopenedDatabase.exercises.count()).toBe(30)
+    expect(await reopenedDatabase.exercises.count()).toBe(39)
     expect(await reopenedDatabase.exercises.get('builtin:pull-up')).toMatchObject({
       name: 'Moje podciąganie',
       variants: ['Mój pierwszy krok', 'Mój drugi krok'],
     })
     expect(await reopenedDatabase.exercises.get('builtin:dip')).toBeUndefined()
+    expect(await reopenedDatabase.exercises.get('builtin:hip-thrust')).toBeUndefined()
     expect(await reopenedDatabase.exercises.get('custom:test-exercise')).toMatchObject({
       name: 'Moje ćwiczenie',
       isCustom: true,
@@ -157,8 +162,8 @@ describe('StreetTrackerDB schema and first-run seed', () => {
     const upgradedDatabase = createDatabase(name)
     await upgradedDatabase.open()
 
-    expect(upgradedDatabase.verno).toBe(4)
-    expect(await upgradedDatabase.exercises.count()).toBe(30)
+    expect(upgradedDatabase.verno).toBe(5)
+    expect(await upgradedDatabase.exercises.count()).toBe(40)
     expect(await upgradedDatabase.exercises.get('builtin:front-lever')).toMatchObject({
       name: 'Waga przodem (front lever)',
       trackingType: 'time',
@@ -167,7 +172,7 @@ describe('StreetTrackerDB schema and first-run seed', () => {
     expect(await upgradedDatabase.setEntries.count()).toBe(0)
   })
 
-  it('upgrades version 2 without reseeding deleted exercises or rewriting sessions and sets', async () => {
+  it('upgrades version 2 adding gym exercises without restoring old deletions or rewriting history', async () => {
     const name = createDatabaseName()
     const originalDatabase = new Dexie(name)
     connections.push(originalDatabase)
@@ -193,15 +198,18 @@ describe('StreetTrackerDB schema and first-run seed', () => {
     const upgradedDatabase = createDatabase(name)
     await upgradedDatabase.open()
 
-    expect(upgradedDatabase.verno).toBe(4)
-    expect(await upgradedDatabase.exercises.toArray()).toEqual([exercise])
+    expect(upgradedDatabase.verno).toBe(5)
+    expect(await upgradedDatabase.exercises.count()).toBe(11)
+    expect(await upgradedDatabase.exercises.get(exercise.id)).toEqual(exercise)
+    expect(await upgradedDatabase.exercises.get('builtin:dip')).toBeUndefined()
+    expect(await upgradedDatabase.exercises.bulkGet(gymExercises.map((exercise) => exercise.id))).toEqual(gymExercises)
     expect(await upgradedDatabase.workoutSessions.toArray()).toEqual([session])
     expect(await upgradedDatabase.setEntries.toArray()).toEqual([set])
     expect(await upgradedDatabase.workoutStates.count()).toBe(0)
     expect(await upgradedDatabase.workoutSettings.count()).toBe(0)
   })
 
-  it('upgrades version 3 without changing workout drafts, settings or a deleted catalogue', async () => {
+  it('upgrades version 3 adding only gym exercises and preserving workout drafts and settings', async () => {
     const name = createDatabaseName()
     const originalDatabase = new Dexie(name)
     connections.push(originalDatabase)
@@ -218,10 +226,45 @@ describe('StreetTrackerDB schema and first-run seed', () => {
 
     const upgradedDatabase = createDatabase(name)
     await upgradedDatabase.open()
-    expect(upgradedDatabase.verno).toBe(4)
-    expect(await upgradedDatabase.exercises.count()).toBe(0)
+    expect(upgradedDatabase.verno).toBe(5)
+    expect(await upgradedDatabase.exercises.count()).toBe(10)
     expect(await upgradedDatabase.workoutStates.toArray()).toEqual([state])
     expect(await upgradedDatabase.workoutSettings.toArray()).toEqual([settings])
     expect(await upgradedDatabase.backupMetadata.count()).toBe(0)
+  })
+
+  it('upgrades version 4 once, preserving existing gym IDs and all user data', async () => {
+    const name = createDatabaseName()
+    const originalDatabase = new Dexie(name)
+    connections.push(originalDatabase)
+    originalDatabase.version(4).stores({
+      exercises: 'id, name, category, trackingType', workoutSessions: 'id, date, startedAt',
+      setEntries: 'id, sessionId, exerciseId, [sessionId+order]', workoutStates: 'sessionId',
+      workoutSettings: 'id', backupMetadata: 'id',
+    })
+    await originalDatabase.open()
+    const exercise = { id: 'builtin:hip-thrust', name: 'Mój hip thrust', category: 'legs', trackingType: 'reps_weight', supportsAddedWeight: true, variants: ['Mój wariant'], isCustom: true }
+    const settings = { id: 'workouts', restDurationSec: 150 }
+    const metadata = { id: 'backup', lastExportedAt: '2026-10-31T09:00:00.000Z' }
+    await originalDatabase.table('exercises').add(exercise)
+    await originalDatabase.table('workoutSettings').add(settings)
+    await originalDatabase.table('backupMetadata').add(metadata)
+    originalDatabase.close()
+
+    const upgraded = createDatabase(name)
+    await upgraded.open()
+    expect(upgraded.verno).toBe(5)
+    expect(await upgraded.exercises.count()).toBe(10)
+    expect(await upgraded.exercises.get(exercise.id)).toEqual(exercise)
+    expect(await upgraded.exercises.get('builtin:dip')).toBeUndefined()
+    expect(await upgraded.workoutSettings.get('workouts')).toEqual(settings)
+    expect(await upgraded.backupMetadata.get('backup')).toEqual(metadata)
+    await upgraded.exercises.delete('builtin:leg-press')
+    upgraded.close()
+
+    const reopened = createDatabase(name)
+    await reopened.open()
+    expect(await reopened.exercises.count()).toBe(9)
+    expect(await reopened.exercises.get('builtin:leg-press')).toBeUndefined()
   })
 })

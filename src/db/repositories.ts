@@ -372,13 +372,22 @@ export function createRepositories(database: StreetTrackerDB = db) {
     return await database.workoutSettings.get('workouts') ?? { id: 'workouts', restDurationSec: 90 }
   }
 
-  async function updateWorkoutSettings(changes: Pick<WorkoutSettings, 'restDurationSec'>): Promise<WorkoutSettings> {
-    if (!Number.isInteger(changes.restDurationSec) || changes.restDurationSec < 0 || changes.restDurationSec > 3600) {
+  async function updateWorkoutSettings(changes: Partial<Omit<WorkoutSettings, 'id'>>): Promise<WorkoutSettings> {
+    if (changes.restDurationSec !== undefined && (!Number.isInteger(changes.restDurationSec) || changes.restDurationSec < 0 || changes.restDurationSec > 3600)) {
       throw new RepositoryError('VALIDATION', 'Przerwa musi trwać od 0 do 3600 sekund.')
     }
-    const settings: WorkoutSettings = { id: 'workouts', restDurationSec: changes.restDurationSec }
-    await database.workoutSettings.put(settings)
-    return settings
+    if (changes.gymMode !== undefined && typeof changes.gymMode !== 'boolean') {
+      throw new RepositoryError('VALIDATION', 'Wybierz tryb ćwiczeń: siłownia lub kalistenika.')
+    }
+    return database.transaction('rw', database.workoutSettings, async () => {
+      const settings: WorkoutSettings = {
+        ...await getWorkoutSettings(),
+        ...(changes.restDurationSec === undefined ? {} : { restDurationSec: changes.restDurationSec }),
+        ...(changes.gymMode === undefined ? {} : { gymMode: changes.gymMode }),
+      }
+      await database.workoutSettings.put(settings)
+      return settings
+    })
   }
 
   async function readActiveWorkout(): Promise<ActiveWorkout | undefined> {

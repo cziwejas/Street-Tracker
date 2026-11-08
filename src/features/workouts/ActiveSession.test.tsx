@@ -1,9 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { builtinExercises } from '../../db/seed'
+import { gymExercises } from '../../db/gymSeed'
 import type { ActiveWorkout, SetEntry, WorkoutDraft } from '../../db/types'
+import { exercisesForMode } from '../exercises/exerciseCatalogue'
 import { ActiveSession } from './ActiveSession'
-import { SetFields } from './SetFields'
+import { EditSet, SetFields } from './SetFields'
 
 const exercises = [...builtinExercises]
 const pullUp = exercises.find((exercise) => exercise.id === 'builtin:pull-up')
@@ -26,6 +28,30 @@ const active: ActiveWorkout = {
 }
 
 describe('active workout screen', () => {
+  it('always shows a weight input without a checkbox for every gym exercise, including shared leg exercises', () => {
+    for (const exercise of exercisesForMode([...exercises, ...gymExercises], true)) {
+      const html = renderToStaticMarkup(<SetFields exercise={exercise}
+        draft={{ reps: 8, durationSec: 30, addedWeightKg: 0, withAddedWeight: false }}
+        disabled={false} prefix="new" onChange={() => undefined} />)
+      expect(html, exercise.name).toContain('for="new-weight"')
+      expect(html, exercise.name).toContain('Ciężar (kg)')
+      expect(html, exercise.name).toContain('value="0"')
+      expect(html, exercise.name).not.toContain('type="checkbox"')
+      expect(html, exercise.name).not.toContain('Wariant z obciążeniem')
+    }
+  })
+
+  it.each([0, 42.5])('shows a gym weight of %s kg directly when editing a set', (addedWeightKg) => {
+    const exercise = gymExercises.find((item) => item.id === 'builtin:hip-thrust')
+    if (!exercise) throw new Error('Missing hip thrust fixture')
+    const html = renderToStaticMarkup(<EditSet exercise={exercise}
+      set={{ id: 'gym-set', sessionId: 'session', exerciseId: exercise.id, reps: 10, addedWeightKg, order: 0, note: '' }}
+      busy={false} onSave={() => undefined} />)
+    expect(html).toContain('for="edit-weight"')
+    expect(html).toContain(`value="${addedWeightKg}"`)
+    expect(html).not.toContain('type="checkbox"')
+  })
+
   it.each([
     { label: 'default bodyweight variant', draft: { reps: 8, durationSec: 30, addedWeightKg: 0 }, visible: false },
     { label: 'explicit bodyweight variant', draft: { reps: 8, durationSec: 30, addedWeightKg: 0, withAddedWeight: false }, visible: false },

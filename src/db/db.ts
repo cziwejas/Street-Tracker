@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import { builtinExercises } from './seed'
+import { gymExercises } from './gymSeed'
 import type { BackupMetadata, Exercise, SetEntry, WorkoutSession, WorkoutSettings, WorkoutState } from './types'
 
 export class StreetTrackerDB extends Dexie {
@@ -35,9 +36,16 @@ export class StreetTrackerDB extends Dexie {
     // Backup bookkeeping is local data too; preserve every released schema above.
     this.version(4).stores({ backupMetadata: 'id' })
 
+    // Add only the new catalogue once, preserving user edits and older deletions.
+    this.version(5).stores({}).upgrade(async (transaction) => {
+      const exercises = transaction.table<Exercise, string>('exercises')
+      const existing = await exercises.bulkGet(gymExercises.map((exercise) => exercise.id))
+      await exercises.bulkAdd(gymExercises.filter((_, index) => existing[index] === undefined))
+    })
+
     // New databases start directly at the latest version; upgrade() is skipped.
     this.on('populate', async (transaction) => {
-      await transaction.table<Exercise, string>('exercises').bulkAdd(builtinExercises)
+      await transaction.table<Exercise, string>('exercises').bulkAdd([...builtinExercises, ...gymExercises])
     })
   }
 }

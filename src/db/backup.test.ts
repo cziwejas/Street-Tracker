@@ -55,6 +55,14 @@ async function populate() {
 }
 
 describe('JSON backup repository', () => {
+  it.each([true, false])('round trips gym mode %s through export and import', async (gymMode) => {
+    await source.updateWorkoutSettings({ gymMode })
+    const backup = parseBackupJson(serializeBackup(await source.exportData(), exportedAt))
+    const restored = createRepositories(newDatabase())
+    await restored.importData(backup.data, 'replace')
+    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', restDurationSec: 90, gymMode })
+  })
+
   it('round trips all tables through JSON into a fresh database, retaining IDs, deletions and active workout state after reopening', async () => {
     const { active } = await populate()
     const original = serializeBackup(await source.exportData(), exportedAt)
@@ -178,6 +186,7 @@ describe('untrusted JSON validation', () => {
       { ...backup.data, workoutStates: [{ ...backup.data.workoutStates[0], drafts: {} }] },
       { ...backup.data, workoutStates: [{ ...backup.data.workoutStates[0], restEndsAt: '123' }] },
       { ...backup.data, workoutSettings: [{ id: 'workouts', restDurationSec: 3601 }] },
+      { ...backup.data, workoutSettings: [{ id: 'workouts', restDurationSec: 90, gymMode: 'true' }] },
       { ...backup.data, backupMetadata: [{ id: 'backup', lastExportedAt: 'yesterday' }] },
     ]
     for (const data of invalidData) expect(() => parseBackupJson(JSON.stringify({ ...backup, data }))).toThrow()

@@ -134,7 +134,9 @@ export function ActiveSession({ active, exercises, history, settings, actions, o
           }) }}>Powtórz poprzednią serię</button>
         </> : <button type="button" className="workout-button workout-primary w-full" disabled={busy} onClick={() => setDialog('picker')}>+ Dodaj ćwiczenie</button>}
       </div>
-      {dialog === 'picker' && <ExercisePicker exercises={exercises} selectedIds={state.exerciseIds} busy={busy} error={actions.error} onClose={() => setDialog(null)} onSelect={(id) => { void perform(async () => { await repositories.addWorkoutExercise(session.id, id); setDialog(null) }) }} />}
+      {dialog === 'picker' && <ExercisePicker exercises={exercises} selectedIds={state.exerciseIds} busy={busy} error={actions.error}
+        gymMode={settings.gymMode ?? false} onGymModeChange={(gymMode) => { void perform(async () => { await repositories.updateWorkoutSettings({ gymMode }) }) }}
+        onClose={() => setDialog(null)} onSelect={(id) => { void perform(async () => { await repositories.addWorkoutExercise(session.id, id); setDialog(null) }) }} />}
       {dialog === 'rest' && <WorkoutDialog title="Przerwa między seriami" busy={busy} error={actions.error} onClose={() => setDialog(null)}><RestSettings settings={settings} busy={busy} onSave={(restDurationSec) => { void perform(async () => { await repositories.updateWorkoutSettings({ restDurationSec }); setDialog(null) }) }} /></WorkoutDialog>}
       {dialog === 'finish' && <WorkoutDialog title="Zakończyć trening?" busy={busy} error={actions.error} onClose={() => setDialog(null)}>
         <p className="mb-5 text-sm leading-relaxed text-muted">Zapisano {sets.length} serii. Trening pozostanie w historii na tym urządzeniu.</p>

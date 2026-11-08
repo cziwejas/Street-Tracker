@@ -80,6 +80,8 @@ export interface WorkoutState {
 
 export interface WorkoutSettings {
   id: 'workouts'
+  /** Older settings default to the calisthenics catalogue. */
+  gymMode?: boolean
   /** Zero disables automatic rest. */
   restDurationSec: number
 }

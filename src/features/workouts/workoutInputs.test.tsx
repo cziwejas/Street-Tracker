@@ -80,7 +80,7 @@ describe('exercise search', () => {
   })
 
   it('keeps already selected exercises available and labels the search and dialog', () => {
-    const html = renderToStaticMarkup(<ExercisePicker exercises={exercises.filter((exercise) => exercise.id === 'builtin:pull-up')} selectedIds={['builtin:pull-up']} busy={false} onSelect={() => undefined} onClose={() => undefined} />)
+    const html = renderToStaticMarkup(<ExercisePicker exercises={exercises.filter((exercise) => exercise.id === 'builtin:pull-up')} selectedIds={['builtin:pull-up']} busy={false} gymMode={false} onGymModeChange={() => undefined} onSelect={() => undefined} onClose={() => undefined} />)
     expect(html).toContain('Dodaj ćwiczenie')
     expect(html).toContain('Szukaj ćwiczenia')
     expect(html).toContain('aria-labelledby=')

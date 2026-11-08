@@ -120,7 +120,7 @@ export function validateBackupData(value: unknown): BackupData {
     if (row.id !== 'workouts') return invalid('nieznany identyfikator ustawień.')
     const restDurationSec = numeric(row.restDurationSec)
     if (!Number.isInteger(restDurationSec) || restDurationSec < 0 || restDurationSec > 3600) invalid('błędna długość przerwy.')
-    return { id: row.id, restDurationSec }
+    return { id: row.id, restDurationSec, ...(row.gymMode === undefined ? {} : { gymMode: bool(row.gymMode) }) }
   }), (row) => row.id)
   const backupMetadata = unique(list<BackupMetadata>(data.backupMetadata, (value) => {
     const row = requireObject(value)

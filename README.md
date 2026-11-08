@@ -174,7 +174,11 @@ src/
 
 ## Local data
 
-There is no backend, account system, or sync. `src/db/db.ts` defines schema version 4: exercises, workout sessions, and set entries from version 2, workout state and workout preferences from version 3, and backup metadata from version 4. All released schema declarations and migration paths are preserved. The app opens the database on startup and seeds 30 Polish exercises on first creation or upgrade from version 1. Later upgrades and reopening an existing database preserve user edits, deletions, and workout history.
+There is no backend, account system, or sync. `src/db/db.ts` defines schema version 5: exercises, workout sessions, and set entries from version 2, workout state and workout preferences from version 3, backup metadata from version 4, and a one-time addition of 10 gym exercises in version 5. All released schema declarations and migration paths are preserved. The app opens the database on startup and seeds 40 Polish exercises on first creation. Existing installations receive only the new gym exercises during the version 5 upgrade, preserving user edits, deletions from the original catalogue, and workout history. Reopening does not reseed either catalogue.
+
+The **Siłownia** checkbox on the workout screen and in the exercise picker switches from calisthenics to 14 lower-body exercises, including hip thrusts, Bulgarian split squats, Romanian deadlifts, leg presses, and hip abductions. The choice stays in IndexedDB and JSON backups. Switching modes filters available choices without changing selected exercises, logged sets, history, or progress.
+
+Gym catalogue exercises always show **Ciężar (kg)** when logging or editing sets, including at zero load, without the **Wariant z obciążeniem** checkbox. This also applies to shared leg exercises after switching back to calisthenics. Other calisthenics exercises retain their weighted-variant checkbox.
 
 Workout repository operations append a set and update its draft and rest deadline in one transaction. Starting a workout resumes an existing open session, and finishing it preserves its sets and clears its rest timer. Drafts also persist exercises that have been selected before their first set is logged.
 
