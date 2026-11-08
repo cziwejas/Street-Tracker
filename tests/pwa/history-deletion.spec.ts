@@ -8,7 +8,7 @@ async function finishWorkoutWithSet(page: Page) {
   await page.getByRole('button', { name: '+ Dodaj serię', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Edytuj serię 1: Podciąganie nachwytem' })).toBeVisible()
   await page.getByRole('button', { name: 'Zakończ', exact: true }).click()
-  await page.getByRole('button', { name: 'Zakończ trening', exact: true }).click()
+  await page.getByRole('button', { name: 'Zapisz i zakończ', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Rozpocznij trening', exact: true })).toBeVisible()
 }
 
@@ -22,12 +22,12 @@ test.beforeEach(async ({ page, request }) => {
 test('cancels safely, deletes from history and details, and persists the empty history', async ({ page }, testInfo) => {
   await finishWorkoutWithSet(page)
   await finishWorkoutWithSet(page)
-  await page.getByRole('link', { name: 'Historia treningów', exact: true }).click()
+  await page.getByRole('link', { name: 'Zobacz wszystko', exact: true }).click()
   await expect(page.locator('a.history-link')).toHaveCount(2)
   const retainedUrl = await page.locator('a.history-link').last().getAttribute('href')
   const deleteButton = page.getByRole('button', { name: /^Usuń trening z/ }).first()
   await deleteButton.click()
-  await expect(page).toHaveURL(/\/historia$/)
+  await expect(page).toHaveURL(/\/historia\?zakres=wszystkie$/)
   const dialog = page.getByRole('dialog', { name: 'Usunąć trening?' })
   await expect(dialog).toContainText('Tej operacji nie można cofnąć.')
   await page.screenshot({ path: testInfo.outputPath('delete-workout-mobile.png') })
@@ -67,8 +67,7 @@ test('cancels safely, deletes from history and details, and persists the empty h
 
 test('keeps the workout on a storage failure and allows retrying deletion', async ({ page }) => {
   await finishWorkoutWithSet(page)
-  await page.getByRole('link', { name: 'Historia treningów', exact: true }).click()
-  await page.locator('a.history-link').click()
+  await page.getByRole('region', { name: 'Ostatnie treningi' }).getByRole('link', { name: /Podciąganie nachwytem/ }).click()
   await page.getByRole('button', { name: /^Usuń trening z/ }).click()
   // Fail one parent deletion after its dependent records have been removed.
   await page.evaluate(() => {

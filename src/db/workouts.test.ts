@@ -229,9 +229,18 @@ describe('persistent workout workflow', () => {
     expect(await database.workoutStates.count()).toBe(0)
     await repositories.selectWorkoutExercise(session.id, 'builtin:pull-up')
     expect(await database.workoutStates.count()).toBe(1)
-    await repositories.deleteWorkoutSession(session.id)
+    await repositories.discardWorkout(session.id)
+    expect(await repositories.getActiveWorkout()).toBeUndefined()
     expect(await database.workoutStates.count()).toBe(0)
     expect(await database.setEntries.count()).toBe(0)
+  })
+
+  it('protects a workout that was finished before discard could run', async () => {
+    const sessionId = await startWithExercise()
+    await repositories.logWorkoutSet(sessionId, 'builtin:pull-up', draft, now)
+    await repositories.finishWorkout(sessionId, '2026-10-31T10:00:00Z')
+    await expect(repositories.discardWorkout(sessionId)).rejects.toThrow('już zakończony')
+    expect(await repositories.getSetEntriesForSession(sessionId)).toHaveLength(1)
   })
 
   it('protects an exercise selected in an open session before its first set', async () => {

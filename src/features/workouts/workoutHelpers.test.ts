@@ -4,10 +4,22 @@ import {
   describeSet,
   draftFromSet,
   formatClock,
+  formatWorkoutCount,
   localWorkoutDate,
   previousExerciseSet,
   remainingRestSeconds,
 } from './workoutHelpers'
+
+describe('Polish workout counts', () => {
+  it.each([
+    [0, 'serii', 'ćwiczeń'], [1, 'seria', 'ćwiczenie'], [2, 'serie', 'ćwiczenia'],
+    [4, 'serie', 'ćwiczenia'], [5, 'serii', 'ćwiczeń'], [12, 'serii', 'ćwiczeń'],
+    [21, 'serii', 'ćwiczeń'], [24, 'serie', 'ćwiczenia'],
+  ])('inflects counts of %s', (count, series, exercises) => {
+    expect(formatWorkoutCount(count, 'series')).toBe(`${count} ${series}`)
+    expect(formatWorkoutCount(count, 'exercises')).toBe(`${count} ${exercises}`)
+  })
+})
 
 const exercise: Exercise = {
   id: 'test:pull-up',

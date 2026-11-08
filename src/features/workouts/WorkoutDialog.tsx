@@ -30,7 +30,7 @@ export function WorkoutDialog({ title, description, children, onClose, busy = fa
       ref={dialog}
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
-      className="fixed inset-x-0 top-auto bottom-0 m-0 max-h-[85dvh] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-3xl border border-white/10 bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pl-[max(1.25rem,env(safe-area-inset-left,0px))] pr-[max(1.25rem,env(safe-area-inset-right,0px))] text-white shadow-2xl backdrop:bg-black/75 sm:inset-0 sm:m-auto sm:max-w-lg sm:rounded-3xl"
+      className="workout-dialog fixed inset-x-0 top-auto mx-auto w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-3xl border border-white/10 bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pl-[max(1.25rem,env(safe-area-inset-left,0px))] pr-[max(1.25rem,env(safe-area-inset-right,0px))] text-white shadow-2xl backdrop:bg-black/75"
       onCancel={(event) => { event.preventDefault(); if (!busy) onClose() }}
       onClick={(event) => { if (event.target === event.currentTarget && !busy) onClose() }}
     >

@@ -12,30 +12,30 @@ export function SetFields({ exercise, draft, onChange, disabled, prefix }: {
   const alwaysShowWeight = exercise.supportsAddedWeight && isGymExercise(exercise)
   const weighted = exercise.supportsAddedWeight && (alwaysShowWeight || isWeightedDraft(draft))
   return (
-    <div className="space-y-4">
-      {variants.length > 0 && (
-        <label className="block text-sm text-muted" htmlFor={`${prefix}-variant`}>
-          Wariant
-          <select id={`${prefix}-variant`} className="workout-input mt-2 w-full" disabled={disabled}
-            value={draft.variant ?? ''} onChange={(event) => onChange({ ...draft, variant: event.target.value || undefined })}>
-            <option value="">Bez wariantu</option>
-            {variants.map((variant) => <option key={variant} value={variant}>{variant}</option>)}
-          </select>
-        </label>
-      )}
+    <div className="space-y-2.5">
       {exercise.trackingType === 'time' ? (
-        <NumberStepper id={`${prefix}-time`} label="Czas" unit="s" value={draft.durationSec} min={1} step={5}
+        <NumberStepper id={`${prefix}-time`} label="Czas" unit="s" value={draft.durationSec} min={1} step={5} inputMode="numeric"
           disabled={disabled} onChange={(durationSec) => onChange({ ...draft, durationSec })} />
       ) : (
         <NumberStepper id={`${prefix}-reps`} label="Powtórzenia" value={draft.reps} min={1} integer
           disabled={disabled} onChange={(reps) => onChange({ ...draft, reps })} />
       )}
-      {exercise.supportsAddedWeight && !alwaysShowWeight && <AddedWeightToggle id={`${prefix}-weighted`} checked={weighted} disabled={disabled}
-        onChange={(checked) => onChange(changeAddedWeightMode(draft, checked))} />}
       {weighted && (
         <NumberStepper id={`${prefix}-weight`} label={alwaysShowWeight ? 'Ciężar' : 'Dodatkowy ciężar'} unit="kg" value={draft.addedWeightKg} step={0.5}
           disabled={disabled} onChange={(addedWeightKg) => onChange({ ...draft, addedWeightKg, withAddedWeight: true })} />
       )}
+      {(variants.length > 0 || (exercise.supportsAddedWeight && !alwaysShowWeight)) && <div className="flex flex-wrap items-end gap-2">
+        {variants.length > 0 && <label className="min-w-0 flex-1 basis-32 text-xs text-muted" htmlFor={`${prefix}-variant`}>
+          Wariant
+          <select id={`${prefix}-variant`} className="workout-input mt-1 w-full min-w-0 px-2" disabled={disabled}
+            value={draft.variant ?? ''} onChange={(event) => onChange({ ...draft, variant: event.target.value || undefined })}>
+            <option value="">Bez wariantu</option>
+            {variants.map((variant) => <option key={variant} value={variant}>{variant}</option>)}
+          </select>
+        </label>}
+        {exercise.supportsAddedWeight && !alwaysShowWeight && <AddedWeightToggle id={`${prefix}-weighted`} checked={weighted} disabled={disabled} compact
+          onChange={(checked) => onChange(changeAddedWeightMode(draft, checked))} />}
+      </div>}
     </div>
   )
 }
@@ -45,10 +45,10 @@ export function RestSettings({ settings, busy, onSave }: {
 }) {
   const [seconds, setSeconds] = useState(settings.restDurationSec)
   return (
-    <form onSubmit={(event) => { event.preventDefault(); onSave(seconds) }} className="space-y-5">
+    <form onSubmit={(event) => { event.preventDefault(); onSave(seconds) }} className="mt-3 space-y-3">
       <NumberStepper id="rest-duration" label="Domyślna przerwa" unit="s" min={0} max={3600} step={15} integer
         value={seconds} onChange={setSeconds} disabled={busy} />
-      <p className="text-sm leading-relaxed text-muted">Timer startuje po dodaniu lub powtórzeniu serii. Ustaw 0, aby go wyłączyć. Zmiana obowiązuje od następnej serii.</p>
+      <p className="text-xs text-muted">Ustaw 0 s, aby wyłączyć timer przerwy.</p>
       <button className="workout-button workout-primary w-full" disabled={busy} type="submit">Zapisz przerwę</button>
     </form>
   )

@@ -60,7 +60,7 @@ describe('workout numeric input', () => {
     expect(html).toContain('inputMode="decimal"')
     expect(html).toContain('value="2.75"')
     expect(html).toContain('for="weight"')
-    expect(html).toContain('size-14')
+    expect(html).toContain('size-11')
   })
 })
 
