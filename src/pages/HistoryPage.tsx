@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { DateRangeFilter } from '../components/DateRangeFilter'
 import { describeVolume, findPersonalRecords, summarizeVolume, type PersonalRecord } from '../features/progress/progressHelpers'
 import { PrBadge } from '../features/progress/PrBadge'
+import { DeleteWorkoutButton } from '../features/workouts/DeleteWorkoutButton'
 import { HistoryStatus } from '../features/workouts/HistoryStatus'
 import { useHistoryData } from '../features/workouts/useHistoryData'
 import { formatDate, isInDateRange, type DateRange } from '../lib/dates'
@@ -34,7 +35,7 @@ export function HistoryPage() {
               <p className="break-words text-sm leading-relaxed text-muted">{names.join(' · ') || 'Bez ćwiczeń'}</p>
               <p className="mt-3 text-xs leading-relaxed"><span className="text-muted">Objętość łącznie: </span>{describeVolume(summarizeVolume(entry, snapshot.data.exercises))}</p>
               <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted"><span>Serie: {entry.sets.length} · Ćwiczenia: {exerciseIds.length}</span>{prCount > 0 && <><PrBadge /><span>Rekordy: {prCount}</span></>}</div>
-            </Link></li>
+            </Link><div className="mt-1 flex justify-end"><DeleteWorkoutButton session={entry.session} /></div></li>
           })}
         </ol>
         <p className="mt-6 text-xs leading-relaxed text-muted">PR oznacza poprawę liczby powtórzeń lub czasu dla tego samego wariantu i dodatkowego ciężaru. Pierwszy wynik ustanawia rekord. Oznaczenia odnoszą się do dnia treningu.</p>

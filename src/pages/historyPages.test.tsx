@@ -41,6 +41,10 @@ describe('history and progress pages', () => {
     expect(html).toContain('Podciąganie')
     expect(html).toContain('700 kg·powt.')
     expect(html).not.toContain('Rekordy:')
+    expect(html).toContain('aria-label="Usuń trening z 31 października 2026"')
+    for (const [link] of html.matchAll(/<a\b[^>]*>[\s\S]*?<\/a>/g)) {
+      expect(link).not.toContain('<button')
+    }
   })
 
   it('renders bodyweight independently of whether the selected exercise has results', () => {
@@ -76,5 +80,12 @@ describe('history and progress pages', () => {
     const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/historia/missing']}><Routes><Route path="/historia/:sessionId" element={<SessionDetailPage />} /></Routes></MemoryRouter>)
     expect(html).toContain('Nie znaleziono treningu')
     expect(html).toContain('href="/historia"')
+    expect(html).not.toContain('Usuń trening')
+  })
+
+  it('offers deletion for an existing completed session in its details', () => {
+    const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/historia/recent']}><Routes><Route path="/historia/:sessionId" element={<SessionDetailPage />} /></Routes></MemoryRouter>)
+    expect(html).toContain('aria-label="Usuń trening z 31 października 2026"')
+    expect(html).not.toContain('<dialog')
   })
 })
