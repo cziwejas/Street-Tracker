@@ -174,9 +174,9 @@ src/
 
 ## Local data
 
-There is no backend, account system, or sync. `src/db/db.ts` defines schema version 5: exercises, workout sessions, and set entries from version 2, workout state and workout preferences from version 3, backup metadata from version 4, and a one-time addition of 10 gym exercises in version 5. All released schema declarations and migration paths are preserved. The app opens the database on startup and seeds 40 Polish exercises on first creation. Existing installations receive only the new gym exercises during the version 5 upgrade, preserving user edits, deletions from the original catalogue, and workout history. Reopening does not reseed either catalogue.
+The app stores workout data and preferences locally in IndexedDB. Version 7 adds 31 strength exercises once and migrates the previous catalogue preference. A fresh database contains 72 built-in exercises with Polish names. The upgrade preserves existing exercises, user deletions, and workout history.
 
-The **Siłownia** checkbox on the workout screen and in the exercise picker switches from calisthenics to 14 lower-body exercises, including hip thrusts, Bulgarian split squats, Romanian deadlifts, leg presses, and hip abductions. The choice stays in IndexedDB and JSON backups. Switching modes filters available choices without changing selected exercises, logged sets, history, or progress.
+The workout screen and exercise picker offer **Kalistenika**, **Siłownia woman** for legs and glutes, and **Siłownia** for strength exercises using free weights, cables, and machines. The full gym catalogue shares lower-body exercises with **Siłownia woman**. The selection is saved in IndexedDB and JSON backups and filters the choices in the picker.
 
 Gym catalogue exercises always show **Ciężar (kg)** when logging or editing sets, including at zero load, without the **Wariant z obciążeniem** checkbox. This also applies to shared leg exercises after switching back to calisthenics. Other calisthenics exercises retain their weighted-variant checkbox.
 

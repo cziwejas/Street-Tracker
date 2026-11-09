@@ -22,6 +22,7 @@ import type {
   ImportMode,
 } from './types'
 import {
+  isExerciseCatalogue,
   normalizeExercise,
   normalizeSession,
   normalizeTimestamp,
@@ -376,14 +377,14 @@ export function createRepositories(database: StreetTrackerDB = db) {
     if (changes.restDurationSec !== undefined && (!Number.isInteger(changes.restDurationSec) || changes.restDurationSec < 0 || changes.restDurationSec > 3600)) {
       throw new RepositoryError('VALIDATION', 'Przerwa musi trwać od 0 do 3600 sekund.')
     }
-    if (changes.gymMode !== undefined && typeof changes.gymMode !== 'boolean') {
-      throw new RepositoryError('VALIDATION', 'Wybierz tryb ćwiczeń: siłownia lub kalistenika.')
+    if (changes.exerciseCatalogue !== undefined && !isExerciseCatalogue(changes.exerciseCatalogue)) {
+      throw new RepositoryError('VALIDATION', 'Wybierz prawidłowy zestaw ćwiczeń.')
     }
     return database.transaction('rw', database.workoutSettings, async () => {
       const settings: WorkoutSettings = {
         ...await getWorkoutSettings(),
         ...(changes.restDurationSec === undefined ? {} : { restDurationSec: changes.restDurationSec }),
-        ...(changes.gymMode === undefined ? {} : { gymMode: changes.gymMode }),
+        ...(changes.exerciseCatalogue === undefined ? {} : { exerciseCatalogue: changes.exerciseCatalogue }),
       }
       await database.workoutSettings.put(settings)
       return settings

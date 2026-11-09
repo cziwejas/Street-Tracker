@@ -1,5 +1,6 @@
 export type ExerciseCategory = 'push' | 'pull' | 'legs' | 'core' | 'skills'
 export type TrackingType = 'reps' | 'time' | 'reps_weight'
+export type ExerciseCatalogue = 'calisthenics' | 'gym-women' | 'gym'
 
 export interface Exercise {
   id: string
@@ -80,8 +81,8 @@ export interface WorkoutState {
 
 export interface WorkoutSettings {
   id: 'workouts'
-  /** Older settings default to the calisthenics catalogue. */
-  gymMode?: boolean
+  /** Defaults to calisthenics when no catalogue has been selected. */
+  exerciseCatalogue?: ExerciseCatalogue
   /** Zero disables automatic rest. */
   restDurationSec: number
 }

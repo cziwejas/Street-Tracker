@@ -31,24 +31,24 @@ async function startWithExercise(exerciseId = 'builtin:pull-up') {
 }
 
 describe('persistent workout workflow', () => {
-  it('persists gym mode independently of rest settings and preserves selected exercises and sets', async () => {
+  it('persists the catalogue independently of rest settings and preserves selected exercises and sets', async () => {
     const sessionId = await startWithExercise()
     const set = await repositories.logWorkoutSet(sessionId, 'builtin:pull-up', draft, now)
     const active = await repositories.getActiveWorkout()
-    await repositories.updateWorkoutSettings({ gymMode: true })
+    await repositories.updateWorkoutSettings({ exerciseCatalogue: 'gym' })
     await repositories.updateWorkoutSettings({ restDurationSec: 120 })
     expect(await repositories.getActiveWorkout()).toEqual(active)
     database.close()
     const reopened = new StreetTrackerDB(database.name)
     connections.push(reopened)
     const restored = createRepositories(reopened)
-    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', gymMode: true, restDurationSec: 120 })
-    await restored.addWorkoutExercise(sessionId, 'builtin:hip-thrust')
-    const gymSet = await restored.logWorkoutSet(sessionId, 'builtin:hip-thrust', { ...draft, reps: 12, addedWeightKg: 40 }, now)
-    expect(gymSet).toMatchObject({ reps: 12, addedWeightKg: 40, exerciseId: 'builtin:hip-thrust' })
-    await restored.updateWorkoutSettings({ gymMode: false })
-    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', gymMode: false, restDurationSec: 120 })
-    expect((await restored.getActiveWorkout())?.state.exerciseIds).toEqual(['builtin:pull-up', 'builtin:hip-thrust'])
+    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', exerciseCatalogue: 'gym', restDurationSec: 120 })
+    await restored.addWorkoutExercise(sessionId, 'builtin:barbell-bench-press')
+    const gymSet = await restored.logWorkoutSet(sessionId, 'builtin:barbell-bench-press', { ...draft, reps: 12, addedWeightKg: 40 }, now)
+    expect(gymSet).toMatchObject({ reps: 12, addedWeightKg: 40, exerciseId: 'builtin:barbell-bench-press' })
+    await restored.updateWorkoutSettings({ exerciseCatalogue: 'gym-women' })
+    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', exerciseCatalogue: 'gym-women', restDurationSec: 120 })
+    expect((await restored.getActiveWorkout())?.state.exerciseIds).toEqual(['builtin:pull-up', 'builtin:barbell-bench-press'])
     expect(await restored.getSetEntriesForSession(sessionId)).toEqual([set, gymSet])
   })
 

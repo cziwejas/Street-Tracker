@@ -24,7 +24,6 @@ describe('history snapshots', () => {
 
     const history = await repositories.getWorkoutHistory()
     expect(history.sessions).toEqual([{ session: later, sets: [] }, { session: first, sets: [firstSet, secondSet] }])
-    expect(history.exercises).toHaveLength(41)
     expect(history.exercises).toEqual(await repositories.listExercises())
 
     await repositories.finishWorkout(active.id, '2026-10-31T09:00:00Z')
@@ -46,6 +45,9 @@ describe('history snapshots', () => {
   it('returns an empty history with the exercise catalogue when no session has finished', async () => {
     const history = await repositories.getWorkoutHistory()
     expect(history.sessions).toEqual([])
-    expect(history.exercises).toHaveLength(41)
+    expect(history.exercises).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'builtin:pull-up' }),
+      expect.objectContaining({ id: 'builtin:barbell-bench-press' }),
+    ]))
   })
 })

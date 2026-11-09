@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import { builtinExercises } from './seed'
 import { currentGymExercises, gymExercises, hipAdduction, kickbackName } from './gymSeed'
+import { strengthGymExercises } from './strengthGymSeed'
 import type { BackupMetadata, Exercise, SetEntry, WorkoutSession, WorkoutSettings, WorkoutState } from './types'
 
 export class StreetTrackerDB extends Dexie {
@@ -54,9 +55,23 @@ export class StreetTrackerDB extends Dexie {
       }
     })
 
+    this.version(7).stores({}).upgrade(async (transaction) => {
+      const exercises = transaction.table<Exercise, string>('exercises')
+      const existing = await exercises.bulkGet(strengthGymExercises.map((exercise) => exercise.id))
+      await exercises.bulkAdd(strengthGymExercises.filter((_, index) => existing[index] === undefined))
+
+      const settings = transaction.table<WorkoutSettings & { gymMode?: boolean }, string>('workoutSettings')
+      const previous = await settings.get('workouts')
+      if (previous?.gymMode !== undefined) {
+        const { gymMode, ...rest } = previous
+        await settings.put({ ...rest, exerciseCatalogue: rest.exerciseCatalogue ?? (gymMode ? 'gym-women' : 'calisthenics') })
+      }
+    })
+
     // New databases start directly at the latest version; upgrade() is skipped.
     this.on('populate', async (transaction) => {
-      await transaction.table<Exercise, string>('exercises').bulkAdd([...builtinExercises, ...currentGymExercises])
+      await transaction.table<Exercise, string>('exercises')
+        .bulkAdd([...builtinExercises, ...currentGymExercises, ...strengthGymExercises])
     })
   }
 }

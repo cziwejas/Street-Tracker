@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
+import type { ExerciseCatalogue } from '../../db/types'
 import { localWorkoutDate } from '../../lib/dates'
+import { ExerciseCatalogueSelector } from '../exercises/ExerciseCatalogueSelector'
 import { HistoryStatus } from './HistoryStatus'
 import { useHistoryData } from './useHistoryData'
 import { formatClock, formatWorkoutCount } from './workoutHelpers'
@@ -7,8 +9,8 @@ import { formatClock, formatWorkoutCount } from './workoutHelpers'
 const shortDate = new Intl.DateTimeFormat('pl-PL', { weekday: 'short', day: 'numeric', month: 'short' })
 const relativeDate = new Intl.RelativeTimeFormat('pl-PL', { numeric: 'auto' })
 
-export function WorkoutHome({ gymMode, busy, onGymModeChange }: {
-  gymMode: boolean; busy: boolean; onGymModeChange: (gymMode: boolean) => void
+export function WorkoutHome({ catalogue, busy, onCatalogueChange }: {
+  catalogue: ExerciseCatalogue; busy: boolean; onCatalogueChange: (catalogue: ExerciseCatalogue) => void
 }) {
   const { snapshot, retry } = useHistoryData()
   const sessions = snapshot.status === 'ready' ? snapshot.data.sessions : []
@@ -22,12 +24,7 @@ export function WorkoutHome({ gymMode, busy, onGymModeChange }: {
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Katalog ćwiczeń">
-        <button type="button" className="workout-button catalogue-chip text-sm" aria-pressed={!gymMode}
-          disabled={busy} onClick={() => onGymModeChange(false)}>Street workout</button>
-        <button type="button" className="workout-button catalogue-chip text-sm" aria-pressed={gymMode}
-          disabled={busy} onClick={() => onGymModeChange(true)}>Siłownia</button>
-      </div>
+      <ExerciseCatalogueSelector catalogue={catalogue} disabled={busy} onChange={onCatalogueChange} />
       {last && <dl className="mb-3 grid grid-cols-2 gap-2 text-sm">
         <div className="rounded-xl border border-white/10 bg-surface px-3 py-2.5">
           <dt className="text-xs text-muted">W tym tygodniu</dt>

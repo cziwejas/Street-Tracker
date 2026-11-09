@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { builtinExercises } from '../../db/seed'
-import { gymExercises } from '../../db/gymSeed'
+import { currentGymExercises } from '../../db/gymSeed'
+import { strengthGymExercises } from '../../db/strengthGymSeed'
 import type { ActiveWorkout, SetEntry, WorkoutDraft } from '../../db/types'
-import { exercisesForMode } from '../exercises/exerciseCatalogue'
+import { exercisesForCatalogue } from '../exercises/exerciseCatalogue'
 import { ActiveSession } from './ActiveSession'
 import { EditSet, SetFields } from './SetFields'
 
@@ -29,7 +30,7 @@ const active: ActiveWorkout = {
 
 describe('active workout screen', () => {
   it('always shows a weight input without a checkbox for every gym exercise, including shared leg exercises', () => {
-    for (const exercise of exercisesForMode([...exercises, ...gymExercises], true)) {
+    for (const exercise of exercisesForCatalogue([...exercises, ...currentGymExercises, ...strengthGymExercises], 'gym')) {
       const html = renderToStaticMarkup(<SetFields exercise={exercise}
         draft={{ reps: 8, durationSec: 30, addedWeightKg: 0, withAddedWeight: false }}
         disabled={false} prefix="new" onChange={() => undefined} />)
@@ -42,7 +43,7 @@ describe('active workout screen', () => {
   })
 
   it.each([0, 42.5])('shows a gym weight of %s kg directly when editing a set', (addedWeightKg) => {
-    const exercise = gymExercises.find((item) => item.id === 'builtin:hip-thrust')
+    const exercise = currentGymExercises.find((item) => item.id === 'builtin:hip-thrust')
     if (!exercise) throw new Error('Missing hip thrust fixture')
     const html = renderToStaticMarkup(<EditSet exercise={exercise}
       set={{ id: 'gym-set', sessionId: 'session', exerciseId: exercise.id, reps: 10, addedWeightKg, order: 0, note: '' }}
@@ -67,7 +68,7 @@ describe('active workout screen', () => {
 
   it('groups interleaved sets by exercise with independently labelled edit/delete actions', () => {
     const html = renderToStaticMarkup(<ActiveSession active={active} exercises={exercises} history={{}}
-      settings={{ id: 'workouts', restDurationSec: 90 }}
+      catalogue="calisthenics" onCatalogueChange={() => undefined}
       actions={{ busy: false, pending: 0, error: null, save: () => undefined, perform: async () => undefined }}
       dock={null} onFinished={() => undefined} />)
 

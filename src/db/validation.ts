@@ -1,4 +1,4 @@
-import type { Exercise, SetEntry, WorkoutSession } from './types'
+import type { Exercise, ExerciseCatalogue, SetEntry, WorkoutSession } from './types'
 
 export type RepositoryErrorCode = 'VALIDATION' | 'NOT_FOUND' | 'IN_USE'
 
@@ -14,6 +14,10 @@ export class RepositoryError extends Error {
 
 function invalid(message: string): never {
   throw new RepositoryError('VALIDATION', message)
+}
+
+export function isExerciseCatalogue(value: unknown): value is ExerciseCatalogue {
+  return value === 'calisthenics' || value === 'gym-women' || value === 'gym'
 }
 
 function nonNegative(value: number | undefined, label: string, integer = false): void {

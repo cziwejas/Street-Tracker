@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseBackupJson, serializeBackup } from '../features/settings/backupFiles'
 import { StreetTrackerDB } from './db'
 import { createRepositories } from './repositories'
+import type { ExerciseCatalogue } from './types'
 
 const databases: StreetTrackerDB[] = []
 let sequence = 0
@@ -55,12 +56,23 @@ async function populate() {
 }
 
 describe('JSON backup repository', () => {
-  it.each([true, false])('round trips gym mode %s through export and import', async (gymMode) => {
-    await source.updateWorkoutSettings({ gymMode })
+  it.each<ExerciseCatalogue>(['calisthenics', 'gym-women', 'gym'])('round trips the %s catalogue through export and import', async (exerciseCatalogue) => {
+    await source.updateWorkoutSettings({ exerciseCatalogue })
     const backup = parseBackupJson(serializeBackup(await source.exportData(), exportedAt))
     const restored = createRepositories(newDatabase())
     await restored.importData(backup.data, 'replace')
-    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', restDurationSec: 90, gymMode })
+    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', restDurationSec: 90, exerciseCatalogue })
+  })
+
+  it.each([
+    { gymMode: true, exerciseCatalogue: 'gym-women' },
+    { gymMode: false, exerciseCatalogue: 'calisthenics' },
+  ])('restores the old gymMode=$gymMode as $exerciseCatalogue', async ({ gymMode, exerciseCatalogue }) => {
+    const backup = parseBackupJson(serializeBackup(await source.exportData(), exportedAt))
+    const legacy = { ...backup, data: { ...backup.data, workoutSettings: [{ id: 'workouts', restDurationSec: 60, gymMode }] } }
+    const restored = createRepositories(newDatabase())
+    await restored.importData(parseBackupJson(JSON.stringify(legacy)).data, 'replace')
+    expect(await restored.getWorkoutSettings()).toEqual({ id: 'workouts', restDurationSec: 60, exerciseCatalogue })
   })
 
   it('round trips all tables through JSON into a fresh database, retaining IDs, deletions and active workout state after reopening', async () => {
@@ -187,6 +199,7 @@ describe('untrusted JSON validation', () => {
       { ...backup.data, workoutStates: [{ ...backup.data.workoutStates[0], restEndsAt: '123' }] },
       { ...backup.data, workoutSettings: [{ id: 'workouts', restDurationSec: 3601 }] },
       { ...backup.data, workoutSettings: [{ id: 'workouts', restDurationSec: 90, gymMode: 'true' }] },
+      { ...backup.data, workoutSettings: [{ id: 'workouts', restDurationSec: 90, exerciseCatalogue: 'unknown' }] },
       { ...backup.data, backupMetadata: [{ id: 'backup', lastExportedAt: 'yesterday' }] },
     ]
     for (const data of invalidData) expect(() => parseBackupJson(JSON.stringify({ ...backup, data }))).toThrow()

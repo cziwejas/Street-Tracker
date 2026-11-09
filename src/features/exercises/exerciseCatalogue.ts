@@ -1,18 +1,29 @@
 import { currentGymExercises } from '../../db/gymSeed'
-import type { Exercise } from '../../db/types'
+import { strengthGymExercises } from '../../db/strengthGymSeed'
+import type { Exercise, ExerciseCatalogue } from '../../db/types'
 
-const gymOnlyIds = new Set(currentGymExercises.map((exercise) => exercise.id))
-const sharedGymIds = new Set([
+const gymWomenIds = new Set(currentGymExercises.map((exercise) => exercise.id))
+const strengthGymIds = new Set(strengthGymExercises.map((exercise) => exercise.id))
+const sharedLegIds = new Set([
   'builtin:squat', 'builtin:bulgarian-split-squat', 'builtin:lunge', 'builtin:calf-raise',
 ])
 
-export function isGymExercise(exercise: Exercise): boolean {
-  return gymOnlyIds.has(exercise.id) || sharedGymIds.has(exercise.id) || (exercise.isCustom && exercise.category === 'legs')
+function isGymWomenExercise(exercise: Exercise): boolean {
+  return gymWomenIds.has(exercise.id) || sharedLegIds.has(exercise.id) || (exercise.isCustom && exercise.category === 'legs')
 }
 
-/** Filter the picker only: changing modes never removes exercises from a workout. */
-export function exercisesForMode(exercises: Exercise[], gymMode: boolean): Exercise[] {
-  return exercises.filter((exercise) => gymMode
-    ? isGymExercise(exercise)
-    : !gymOnlyIds.has(exercise.id))
+export function isGymExercise(exercise: Exercise): boolean {
+  return strengthGymIds.has(exercise.id) || isGymWomenExercise(exercise)
+}
+
+/** Catalogue selection only filters the picker, not the exercises already in a workout. */
+export function exercisesForCatalogue(exercises: Exercise[], catalogue: ExerciseCatalogue): Exercise[] {
+  switch (catalogue) {
+    case 'gym-women':
+      return exercises.filter(isGymWomenExercise)
+    case 'gym':
+      return exercises.filter((exercise) => exercise.isCustom || isGymExercise(exercise))
+    case 'calisthenics':
+      return exercises.filter((exercise) => !gymWomenIds.has(exercise.id) && !strengthGymIds.has(exercise.id))
+  }
 }

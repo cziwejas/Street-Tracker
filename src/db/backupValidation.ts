@@ -1,5 +1,5 @@
 import type { BackupData, BackupMetadata, ExerciseCategory, TrackingType, WorkoutDraft, WorkoutSettings } from './types'
-import { normalizeExercise, normalizeSession, normalizeTimestamp, RepositoryError, validateSetEntry } from './validation'
+import { isExerciseCatalogue, normalizeExercise, normalizeSession, normalizeTimestamp, RepositoryError, validateSetEntry } from './validation'
 
 function invalid(message: string): never {
   throw new RepositoryError('VALIDATION', `Nieprawidłowa kopia JSON: ${message}`)
@@ -120,7 +120,12 @@ export function validateBackupData(value: unknown): BackupData {
     if (row.id !== 'workouts') return invalid('nieznany identyfikator ustawień.')
     const restDurationSec = numeric(row.restDurationSec)
     if (!Number.isInteger(restDurationSec) || restDurationSec < 0 || restDurationSec > 3600) invalid('błędna długość przerwy.')
-    return { id: row.id, restDurationSec, ...(row.gymMode === undefined ? {} : { gymMode: bool(row.gymMode) }) }
+    const gymMode = row.gymMode === undefined ? undefined : bool(row.gymMode)
+    if (row.exerciseCatalogue !== undefined && !isExerciseCatalogue(row.exerciseCatalogue)) {
+      return invalid('nieznany zestaw ćwiczeń.')
+    }
+    const exerciseCatalogue = row.exerciseCatalogue ?? (gymMode === undefined ? undefined : gymMode ? 'gym-women' : 'calisthenics')
+    return { id: row.id, restDurationSec, ...(exerciseCatalogue === undefined ? {} : { exerciseCatalogue }) }
   }), (row) => row.id)
   const backupMetadata = unique(list<BackupMetadata>(data.backupMetadata, (value) => {
     const row = requireObject(value)

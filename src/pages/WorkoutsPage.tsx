@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom'
 import { useOutletContext } from 'react-router-dom'
 import type { WorkoutLayout } from '../components/AppShell'
 import { repositories } from '../db/repositories'
+import type { ExerciseCatalogue } from '../db/types'
 import { ActiveSession } from '../features/workouts/ActiveSession'
 import { WorkoutHome } from '../features/workouts/WorkoutHome'
 import { useWorkoutActions } from '../features/workouts/useWorkoutActions'
@@ -14,10 +15,16 @@ export function WorkoutsPage() {
   const { dock, openSessionId, setOpenSessionId } = useOutletContext<WorkoutLayout>()
   const data = snapshot.status === 'ready' ? snapshot.data : undefined
   const active = data?.active
+  const catalogue = data?.settings.exerciseCatalogue ?? 'calisthenics'
+
+  function changeCatalogue(exerciseCatalogue: ExerciseCatalogue) {
+    void actions.perform(async () => { await repositories.updateWorkoutSettings({ exerciseCatalogue }) })
+  }
 
   if (data && active && openSessionId === active.session.id) {
     return <ActiveSession key={active.session.id} active={active} exercises={data.exercises}
-      history={data.history} settings={data.settings} actions={actions} dock={dock} onFinished={() => setOpenSessionId(null)} />
+      history={data.history} catalogue={catalogue} onCatalogueChange={changeCatalogue}
+      actions={actions} dock={dock} onFinished={() => setOpenSessionId(null)} />
   }
 
   function startOrContinue() {
@@ -42,8 +49,7 @@ export function WorkoutsPage() {
         <button type="button" className="workout-button workout-secondary" onClick={retry}>Spróbuj ponownie</button>
       </div>}
       {data && <>
-        <WorkoutHome gymMode={data.settings.gymMode ?? false} busy={actions.busy}
-          onGymModeChange={(gymMode) => { void actions.perform(async () => { await repositories.updateWorkoutSettings({ gymMode }) }) }} />
+        <WorkoutHome catalogue={catalogue} busy={actions.busy} onCatalogueChange={changeCatalogue} />
         <p className="mt-4 text-xs text-muted"><span aria-hidden="true">✓ </span>Zapis na urządzeniu</p>
         {dock && createPortal(
           <div className="workout-dock safe-inline">

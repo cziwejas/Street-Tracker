@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../../components/Icon'
 import { repositories } from '../../db/repositories'
-import type { ActiveWorkout, Exercise, ExerciseHistoryEntry, SetEntry, WorkoutDraft, WorkoutSettings } from '../../db/types'
+import type { ActiveWorkout, Exercise, ExerciseCatalogue, ExerciseHistoryEntry, SetEntry, WorkoutDraft } from '../../db/types'
 import { ExercisePicker } from './ExercisePicker'
 import { WorkoutDialog } from './WorkoutDialog'
 import { EditSet, SetFields } from './SetFields'
@@ -12,9 +12,10 @@ import { describeSet, describeSetValue, draftFromSet, formatClock, formatWorkout
 
 type Dialog = 'picker' | 'finish' | 'discard' | { kind: 'edit' | 'delete'; set: SetEntry } | null
 
-export function ActiveSession({ active, exercises, history, settings, actions, dock, onFinished }: {
+export function ActiveSession({ active, exercises, history, catalogue, onCatalogueChange, actions, dock, onFinished }: {
   active: ActiveWorkout; exercises: Exercise[]; history: Record<string, ExerciseHistoryEntry[]>;
-  settings: WorkoutSettings; actions: ReturnType<typeof useWorkoutActions>; dock: HTMLDivElement | null;
+  catalogue: ExerciseCatalogue; onCatalogueChange: (catalogue: ExerciseCatalogue) => void;
+  actions: ReturnType<typeof useWorkoutActions>; dock: HTMLDivElement | null;
   onFinished: () => void
 }) {
   const [dialog, setDialog] = useState<Dialog>(null)
@@ -167,7 +168,7 @@ export function ActiveSession({ active, exercises, history, settings, actions, d
         </div>, dock)}
 
       {dialog === 'picker' && <ExercisePicker exercises={exercises} selectedIds={state.exerciseIds} busy={busy} error={actions.error}
-        gymMode={settings.gymMode ?? false} onGymModeChange={(gymMode) => { void perform(async () => { await repositories.updateWorkoutSettings({ gymMode }) }) }}
+        catalogue={catalogue} onCatalogueChange={onCatalogueChange}
         onClose={() => setDialog(null)} onSelect={(id) => { void perform(async () => { await repositories.addWorkoutExercise(session.id, id); setDialog(null) }) }} />}
       {dialog === 'finish' && <WorkoutDialog title="Zakończyć trening?" busy={busy} error={actions.error} onClose={() => setDialog(null)}>
         <p className="mb-4 text-sm tabular-nums text-muted">{formatClock(elapsed)} · {exerciseCount} · {seriesCount}</p>
